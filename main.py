@@ -9,22 +9,42 @@ def main():
     # screen = pygame.display.set_mode((800, 600))
     # pygame.display.set_caption('Scrabble')
     # running = True
-    trie = Trie('words_ptbr.txt')
+    info = '''
+        Input order: [word] [row(1-indexed)] [column(1-indexed)]
+        [direction: (h)orizontal/(v)ertical]
+    '''
+    def msg(x): return f'Player {x}: [palavra] [linha] [coluna] [h/v] -> '
+    current_player = 1
+    trie = Trie()
+    trie.populate_from_file('words_ptbr.txt')
     game = Scrabble(trie)
-    p1_tiles = game.player1.tiles
-    p2_tiles = game.player2.tiles
-    print('Palavras válidas para player 1: ', *game.find_valid_words(p1_tiles))
-    print('Palavras válidas para player 2: ', *game.find_valid_words(p2_tiles))
-    # while running:
-    #     c = input('-> ')
-    #     if c == 'q':
-    #         running = False
-    #     else:
-    #         found = trie.is_word_valid(c)
-    #         if found:
-    #             print('Palavra válida!')
-    #         else:
-    #             print('Palavra inválida')
+    game.print_board()
+    game.show_tiles()
+    game.show_best_words(1)
+    game.show_best_words(2)
+    game.show_scores()
+    while (c := input(msg(current_player))) != 'q':
+        if c == 'info':
+            print(info)
+            continue
+        word, row, col, direction = c.split(' ')
+        try:
+            row, col = int(row), int(col)
+        except ValueError:
+            print('Valor inválido')
+            continue
+        direction = direction.lower() in ('v', 'vertical', 'ver', 'down', 'd')
+        valid_play = game.play_word(
+            current_player, word, (row - 1, col - 1), direction)
+        if valid_play:
+            game.print_board()
+            game.show_tiles()
+            game.show_best_words(1)
+            game.show_best_words(2)
+            game.show_scores()
+            current_player = 3 - current_player
+        else:
+            print('Jogada inválida')
     # for event in pygame.event.get():
     #     if event.type == pygame.QUIT:
     #         running = False
