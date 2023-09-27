@@ -1,25 +1,17 @@
-# import pygame
+import pygame
 
+from app import GameWindow
 from scrabble import Scrabble
 from trie import Trie
 
 
-def main():
-    # pygame.init()
-    # screen = pygame.display.set_mode((800, 600))
-    # pygame.display.set_caption('Scrabble')
-    # running = True
+def menu(game, trie):
     info = '''
         Ordem de input: [palavra] [linha(1-indexed)] [coluna(1-indexed)]
         [direção: (h)orizontal/(v)ertical]
     '''
     def msg(x): return f'Player {x}: [palavra] [linha] [coluna] [h/v] -> '
     current_player = 1
-    trie = Trie()
-    trie.populate_from_file('words_ptbr.txt')
-    game = Scrabble(trie)
-    game.print_board()
-    game.show_scores()
     while (c := input(msg(current_player))) != 'q':
         if c == 's':
             game.show_bag()
@@ -59,11 +51,23 @@ def main():
             current_player = 3 - current_player
         else:
             print('Jogada inválida\n')
-    # for event in pygame.event.get():
-    #     if event.type == pygame.QUIT:
-    #         running = False
 
-    # pygame.quit()
+
+def main():
+    trie = Trie()
+    # trie.populate_from_file('words_ptbr.txt')
+    game = Scrabble(trie)
+    game.print_board()
+    game.show_scores()
+    running = True
+    app = GameWindow(15, 48, game)
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+        app.draw_grid()
+        pygame.display.flip()
+    pygame.quit()
 
 
 if __name__ == '__main__':
