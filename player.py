@@ -1,5 +1,6 @@
 import re
 from collections import Counter
+from random import randint
 
 
 class Player:
@@ -8,6 +9,7 @@ class Player:
         self.score = 0
         self.id = id
         self.best_words = []
+        self.previous_play = None
 
     def __str__(self):
         return str(self.id)
@@ -21,9 +23,8 @@ class Player:
         print('>>>>', re.sub(r'\*(\w)', r'[\1]', word))
         counter = Counter(self.tiles)
         word = re.sub(r'\*(\w)', r'*\1', word)
-        print('word: ', word)
         for letter in word_chars:
-            counter[letter] -= 1
+            counter[letter if '*' not in letter else '*'] -= 1
             if counter[letter] < 0:
                 return False
         return True
@@ -33,3 +34,15 @@ class Player:
             if '*' in tile:
                 tile = '*'
             self.tiles.remove(tile)
+
+    def exchange_tiles(self, tiles, bag):
+        if len(tiles) > len(bag) or not all(t in tiles for t in self.tiles):
+            print('Troca inválida\n')
+            return False
+        tiles_on_hand = tiles[:]
+        self.remove_tiles(tiles)
+        self.draw_tiles(bag)
+        for tile in tiles_on_hand:
+            bag.insert(randint(0, len(bag)), tile)
+        print(f'Player {self.id} trocou de peças com sucesso\n')
+        return True
