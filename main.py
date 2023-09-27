@@ -26,12 +26,14 @@ def main():
             game.show_tiles()
             game.show_best_words(1)
             game.show_best_words(2)
+            game.show_scores()
+            game.print_board()
             continue
-        # elif c == 'c':
-        #     challenge_accepted = game.challenge(current_player)
-        #     if not challenge_accepted:
-        #         current_player = 3 - current_player
-        #     continue
+        elif c == 'c':
+            challenge_accepted = game.challenge(current_player)
+            if not challenge_accepted:
+                current_player = 3 - current_player
+            continue
         if c.startswith('info'):
             print(info)
             continue

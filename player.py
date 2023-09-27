@@ -10,21 +10,27 @@ class Player:
         self.id = id
         self.best_words = []
         self.previous_play = None
+        self.previous_draw = None
+        self.previous_score = 0
 
     def __str__(self):
         return str(self.id)
 
     def draw_tiles(self, bag):
+        draw = []
         while (bag and len(self.tiles) < 7):
-            self.tiles.append(bag.popleft())
+            draw.append(bag.pop())
+            self.tiles.append(draw[-1])
+        self.previous_draw = draw
 
     def has_tiles(self, word_chars):
         word = ''.join(word_chars)
-        print('>>>>', re.sub(r'\*(\w)', r'[\1]', word))
+        print('>>>> ', re.sub(r'\*(\w)', r'[\1]', word))
         counter = Counter(self.tiles)
         word = re.sub(r'\*(\w)', r'*\1', word)
         for letter in word_chars:
             counter[letter if '*' not in letter else '*'] -= 1
+            print(counter)
             if counter[letter] < 0:
                 return False
         return True
@@ -36,7 +42,7 @@ class Player:
             self.tiles.remove(tile)
 
     def exchange_tiles(self, tiles, bag):
-        if len(tiles) > len(bag) or not all(t in tiles for t in self.tiles):
+        if len(tiles) > len(bag) or not all(t in self.tiles for t in tiles):
             print('Troca inválida\n')
             return False
         tiles_on_hand = tiles[:]

@@ -21,6 +21,11 @@ class BoardSquare:
             self.letter = '*'
             self.blank_letter = letter[1]
 
+    def clear_square(self):
+        self.letter = ''
+        self.blank_letter = None
+        self.is_occupied = False
+
     def __str__(self):
         if self.blank_letter:
             return self.blank_letter.upper()
@@ -47,6 +52,7 @@ class Scrabble:
         self.bag = None
         self.player1 = None
         self.player2 = None
+        self.previous_played_tiles = None
         self.tiles_on_board = 0
         self.center = (7, 7)
         self.start_game()
@@ -83,9 +89,9 @@ class Scrabble:
             self.board[a][b].letter_multiplier = 2
 
     def get_word_score(self, word, start_pos, end_pos):
-        word = self.clear_word(word)
-        if (end_pos[0] - start_pos[0] + 1 != len(word) and
-                end_pos[1] - start_pos[1] + 1 != len(word)):
+        word = self.split_word(word)
+        if (end_pos[0] - start_pos[0] + 1 != self.len(word) and
+                end_pos[1] - start_pos[1] + 1 != self.len(word)):
             raise ValueError('Palavra ou posições inválidas')
         if start_pos[0] == end_pos[0]:
             word_path = [(start_pos[0], i)
@@ -137,6 +143,8 @@ class Scrabble:
         return word.replace('[', '').replace(']', '').replace('*', '')
 
     def len(self, word):
+        if isinstance(word, list):
+            word = ''.join(word)
         word = self.clear_word(word)
         return len(word)
 
@@ -163,6 +171,8 @@ class Scrabble:
         print()
 
     def split_word(self, word):
+        if isinstance(word, list):
+            word = ''.join(word)
         word = re.sub(r'\[(\w)\]', r'*\1', word)
         split_result = []
         i = 0
@@ -227,11 +237,11 @@ class Scrabble:
         if path[0][0] == path[-1][0]:
             for i, j in path:
                 x = i
-                while x >= 0 and self.board[x][j].is_occupied:
+                while x > 0 and self.board[x - 1][j].is_occupied:
                     x -= 1
                 start = (x, j)
                 x = i
-                while x <= 14 and self.board[x][j].is_occupied:
+                while x < 14 and self.board[x + 1][j].is_occupied:
                     x += 1
                 end = (x, j)
                 if start == end:
@@ -242,11 +252,11 @@ class Scrabble:
         else:
             for i, j in path:
                 y = j
-                while y >= 0 and self.board[i][y].is_occupied:
+                while y > 0 and self.board[i][y - 1].is_occupied:
                     y -= 1
                 start = (i, y)
                 y = j
-                while y <= 14 and self.board[i][y].is_occupied:
+                while y < 14 and self.board[i][y + 1].is_occupied:
                     y += 1
                 end = (i, y)
                 if start == end:
@@ -257,6 +267,7 @@ class Scrabble:
         if invalid_words:
             print('Desafio aceito! Palavras inválidas: '
                   f'{", ".join(invalid_words)}')
+            self.undo_play(player)
             return True
         print('Desafio recusado, a jogada anterior foi válida!')
         return False
@@ -275,8 +286,77 @@ class Scrabble:
                 c if c != '*' else f'[{self.board[i][j].blank_letter}]')
         return ''.join(word)
 
+    def undo_play(self, player):
+        if not player.previous_draw:
+            print('Não há nenhuma jogada anterior\n')
+            return False
+        for tile in player.previous_draw:
+            self.bag.insert(random.randint(0, len(self.bag)), tile)
+        player.previous_draw = None
+        for i, j in self.previous_played_tiles:
+            letter = self.board[i][j].letter
+            player.tiles.append(letter)
+            self.board[i][j].clear_square()
+        return True
+
+    def get_extra_score(self, path):
+        extra_score = 0
+        if path[0][0] == path[-1][0]:
+            for i, j in path:
+                above_occupied = self.board[i - 1][j].is_occupied
+                below_occupied = self.board[(i + 1) % 15][j].is_occupied
+                if ((i == 0 and not below_occupied) or
+                        (i == 14 and not above_occupied)):
+                    continue
+                if ((i == 0 and below_occupied) or
+                        (i < 14 and below_occupied and not above_occupied)):
+                    start = (i, j)
+                    x = i
+                    while x < 14 and self.board[x + 1][j].is_occupied:
+                        x += 1
+                    end = (x, j)
+                    word = self.get_word_from_board(start, end)
+                    extra_score += self.get_word_score(word, start, end)
+                    continue
+                if ((i == 14 and above_occupied) or
+                        (i > 0 and above_occupied and not below_occupied)):
+                    end = (i, j)
+                    x = i
+                    while x > 0 and self.board[x - 1][j].is_occupied:
+                        x -= 1
+                    start = (x, j)
+                    word = self.get_word_from_board(start, end)
+                    extra_score += self.get_word_score(word, start, end)
+        else:
+            for i, j in path:
+                left_occupied = self.board[i][j - 1].is_occupied
+                right_occupied = self.board[i][(j + 1) % 15].is_occupied
+                if ((j == 0 and not right_occupied) or
+                        (j == 14 and not left_occupied)):
+                    continue
+                if ((j == 0 and right_occupied) or
+                        (j < 14 and right_occupied and not left_occupied)):
+                    start = (i, j)
+                    y = j
+                    while y < 14 and self.board[i][y + 1].is_occupied:
+                        y += 1
+                    end = (i, y)
+                    word = self.get_word_from_board(start, end)
+                    extra_score += self.get_word_score(word, start, end)
+                    continue
+                if ((j == 14 and left_occupied) or
+                        (j > 0 and left_occupied and not right_occupied)):
+                    end = (i, j)
+                    y = j
+                    while y > 0 and self.board[i][y - 1].is_occupied:
+                        y -= 1
+                    start = (i, y)
+                    word = self.get_word_from_board(start, end)
+                    extra_score += self.get_word_score(word, start, end)
+        return extra_score
+
     def play_word(self, player, word, start_pos, down=True):
-        player = self.player1 if player == 1 else self.player2
+        player = self.get_player(player)
         word = self.split_word(word)
         if not player.has_tiles(word):
             print('Você não possui as letras para jogar esta palavra')
@@ -309,10 +389,13 @@ class Scrabble:
         for (a, b), tile in tiles_to_add.items():
             self.board[a][b].set_letter(tile)
         word_score = self.get_word_score(word, start_pos, end_pos)
-        player.score += word_score
+        player.previous_score = player.score
+        play_score = word_score + self.get_extra_score(word_path)
+        player.score += play_score
         self.tiles_on_board += len(tiles_to_add)
+        self.previous_played_tiles = tiles_to_add.keys()
         print(f'Jogador {player} jogou > {self.join_word(word)} < por '
-              f'{word_score} pontos')
+              f'{play_score} pontos')
         player.remove_tiles(word)
         player.draw_tiles(self.bag)
         player.previous_play = word_path
