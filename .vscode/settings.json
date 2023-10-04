@@ -1,4 +1,6 @@
 {
+    "python.venvPath": "./venv",
+    "python.terminal.activateEnvInCurrentTerminal": true,
     "[python]": {
         "editor.defaultFormatter": "ms-python.autopep8"
     },

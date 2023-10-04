@@ -55,16 +55,15 @@ def menu(game, trie):
 
 def main():
     trie = Trie()
-    # trie.populate_from_file('words_ptbr.txt')
+    trie.populate_from_file('words_ptbr.txt')
     game = Scrabble(trie)
     game.print_board()
     game.show_scores()
     running = True
     app = GameWindow(15, 48, game)
     while running:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
+        app.handle_events()
+        app.draw_info_section()
         app.draw_grid()
         pygame.display.flip()
     pygame.quit()
