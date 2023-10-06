@@ -264,7 +264,8 @@ class GameWindow:
                     self.current_word = []
                 elif event.key == pygame.K_RETURN and self.current_word:
                     word = ''.join(self.current_word)
-                    self.game.play_word(
-                        word, self.word_start_cell, self.arrow_down)
+                    start = (self.word_start_cell[1], self.word_start_cell[0])
+                    self.game.play_word(word, start, self.arrow_down)
                     self.word_start_cell = self.curr_cell = None
                     self.current_word = []
+                    self.game.print_board()
