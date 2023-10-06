@@ -52,9 +52,11 @@ class Scrabble:
         self.bag = None
         self.player1 = None
         self.player2 = None
+        self.current_player = None
         self.previous_played_tiles = None
         self.tiles_on_board = 0
         self.center = (7, 7)
+        self.previous_play_info = {}
         self.start_game()
 
     def start_game(self):
@@ -65,6 +67,7 @@ class Scrabble:
         self.player2 = Player(2)
         self.player1.draw_tiles(self.bag)
         self.player2.draw_tiles(self.bag)
+        self.current_player = self.player1
 
     def set_multipliers(self):
         tw = [(0, 0), (0, 14), (14, 0), (14, 14),
@@ -210,7 +213,7 @@ class Scrabble:
         print(f'Pontuação player 2: {self.player2.score}')
 
     def get_player(self, id):
-        return self.player1 if id == 1 else self.player2
+        return self.player1 if str(id) == '1' else self.player2
 
     def tiles_touching(self, word_path):
         directions = [(1, 0), (0, 1), (-1, 0), (0, -1)]
@@ -223,6 +226,12 @@ class Scrabble:
                         self.board[x][y].is_occupied):
                     return True
         return False
+
+    def switch_current_player(self):
+        if self.current_player == self.player1:
+            self.current_player = self.player2
+        else:
+            self.current_player = self.player1
 
     def challenge(self, current_player):
         player = self.player1 if current_player == 2 else self.player2
@@ -270,6 +279,7 @@ class Scrabble:
             self.undo_play(player)
             return True
         print('Desafio recusado, a jogada anterior foi válida!')
+        self.switch_current_player()
         return False
 
     def get_word_from_board(self, start, end):
@@ -355,8 +365,8 @@ class Scrabble:
                     extra_score += self.get_word_score(word, start, end)
         return extra_score
 
-    def play_word(self, player, word, start_pos, down=True):
-        player = self.get_player(player)
+    def play_word(self, word, start_pos, down=True):
+        player = self.current_player
         word = self.split_word(word)
         if not player.has_tiles(word):
             print('Você não possui as letras para jogar esta palavra')
@@ -399,4 +409,10 @@ class Scrabble:
         player.remove_tiles(word)
         player.draw_tiles(self.bag)
         player.previous_play = word_path
+        self.switch_current_player()
+        self.previous_play_info = {
+            'player': player.id,
+            'word': self.join_word(word),
+            'play_score': play_score
+        }
         return True

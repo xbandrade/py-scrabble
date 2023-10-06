@@ -43,8 +43,7 @@ def menu(game, trie):
             direction = direction.lower() in (
                 'v', 'vertical', 'ver', 'down', 'd')
             word = trie.clear_word(word)
-            valid_play = game.play_word(
-                current_player, word, (row - 1, col - 1), direction)
+            valid_play = game.play_word(word, (row - 1, col - 1), direction)
         if valid_play:
             game.print_board()
             game.show_scores()
@@ -59,12 +58,14 @@ def main():
     game = Scrabble(trie)
     game.print_board()
     game.show_scores()
+    game.show_tiles()
     running = True
     app = GameWindow(15, 48, game)
     while running:
         app.handle_events()
-        app.draw_info_section()
         app.draw_grid()
+        app.draw_info_section()
+        app.draw_board_tiles()
         pygame.display.flip()
     pygame.quit()
 
