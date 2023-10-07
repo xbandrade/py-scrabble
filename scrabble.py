@@ -404,9 +404,13 @@ class Scrabble:
         player.score += play_score
         self.tiles_on_board += len(tiles_to_add)
         self.previous_played_tiles = tiles_to_add.keys()
+        try:
+            player.remove_tiles(word)
+        except ValueError:
+            print('Jogada inválida!')
+            return False
         print(f'Jogador {player} jogou > {self.join_word(word)} < por '
               f'{play_score} pontos')
-        player.remove_tiles(word)
         player.draw_tiles(self.bag)
         player.previous_play = word_path
         self.switch_current_player()

@@ -26,6 +26,7 @@ class GameWindow:
         self.curr_cell = None
         self.current_word = []
         self.arrow_down = False
+        self.is_blank = False
         self.letters_accents = [
             'á', 'é', 'í', 'ó', 'ú', 'ã', 'õ', 'â', 'ê', 'ô',
             'Á', 'É', 'Í', 'Ó', 'Ú', 'Ã', 'Õ', 'Â', 'Ê', 'Ô']
@@ -119,13 +120,19 @@ class GameWindow:
                          background_surface.get_height()),
                         border_width
                     )
-                    letter_text = self.font.render(
-                        cell.letter.upper(), True, font_color)
+                    if cell.blank_letter:
+                        letter = cell.blank_letter.upper()
+                        font_color = (70, 155, 70)
+                    else:
+                        letter = cell.letter.upper()
+                    letter_text = self.font.render(letter, True, font_color)
                     letter_rect = letter_text.get_rect(
                         center=(self.cell_size // 2, self.cell_size // 2))
                     background_surface.blit(letter_text, letter_rect)
                     self.screen.blit(background_surface, (
                         self.cell_size * j, self.cell_size * i))
+                    if cell.blank_letter:
+                        font_color = (120, 120, 120)
         if self.current_word:
             start_x, start_y = self.word_start_cell
             start_x *= self.cell_size
@@ -133,7 +140,11 @@ class GameWindow:
             step_x, step_y = (0, self.cell_size) if self.arrow_down else (
                 self.cell_size, 0)
             font_color = (220, 220, 220)
+            is_blank = False
             for letter in ''.join(self.current_word).upper():
+                if letter == '*':
+                    is_blank = True
+                    continue
                 offset = 3
                 border_width = 2
                 background_surface = pygame.Surface(
@@ -145,6 +156,8 @@ class GameWindow:
                      background_surface.get_height()),
                     border_width
                 )
+                if is_blank:
+                    font_color = (255, 112, 112)
                 letter_text = self.font.render(letter, True, font_color)
                 letter_rect = letter_text.get_rect(
                     center=(self.cell_size // 2, self.cell_size // 2))
@@ -152,6 +165,9 @@ class GameWindow:
                 self.screen.blit(background_surface, (start_x, start_y))
                 start_x += step_x
                 start_y += step_y
+                if is_blank:
+                    is_blank = False
+                    font_color = (220, 220, 220)
 
     def draw_info_section(self):
         grid_width = self.grid_size * self.cell_size + self.border_thickness
@@ -247,7 +263,11 @@ class GameWindow:
                 if (self.curr_cell and
                     (event.unicode.isalpha() or
                      event.unicode in self.letters_accents)):
-                    self.current_word.append(event.unicode.lower())
+                    if self.is_blank:
+                        self.current_word.append(f'*{event.unicode.lower()}')
+                        self.is_blank = False
+                    else:
+                        self.current_word.append(event.unicode.lower())
                     if ((self.curr_cell[0] >= self.grid_size - 1 and
                          not self.arrow_down) or
                         (self.curr_cell[1] >= self.grid_size and
@@ -259,6 +279,8 @@ class GameWindow:
                     else:
                         self.curr_cell = (
                             self.curr_cell[0] + 1, self.curr_cell[1])
+                elif event.key == pygame.K_SPACE:
+                    self.is_blank = True
                 elif event.key == pygame.K_ESCAPE:
                     self.word_start_cell = self.curr_cell = None
                     self.current_word = []
