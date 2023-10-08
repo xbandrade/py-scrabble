@@ -161,7 +161,7 @@ class Scrabble:
                 best_words.append((word, self.get_word_score(
                     word, start, (start[0], start[1] + self.len(word) - 1))))
             else:
-                best_words.append((word, self.get_word_score(  # FIXME
+                best_words.append((word, self.get_word_score(
                     word, start, (start[0] + self.len(word) - 1, start[1]))))
         best_words.sort(key=lambda x: (-x[1], x[0]))
         player.best_words = []

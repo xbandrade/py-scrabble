@@ -30,7 +30,6 @@ class Player:
         word = re.sub(r'\*(\w)', r'*\1', word)
         for letter in word_chars:
             counter[letter if '*' not in letter else '*'] -= 1
-            print(counter)
             if counter[letter] < 0:
                 return False
         return True

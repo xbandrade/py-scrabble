@@ -27,6 +27,11 @@ class GameWindow:
         self.current_word = []
         self.arrow_down = False
         self.is_blank = False
+        self.tile_rgb = 100
+        self.color_sum = -5
+        self.color_change_counter = 0
+        self.blink_counter = 0
+        self.play_ok = 0
         self.letters_accents = [
             'á', 'é', 'í', 'ó', 'ú', 'ã', 'õ', 'â', 'ê', 'ô',
             'Á', 'É', 'Í', 'Ó', 'Ú', 'Ã', 'Õ', 'Â', 'Ê', 'Ô']
@@ -93,7 +98,8 @@ class GameWindow:
             xy_max_pos, 0), self.border_thickness)
         pygame.draw.line(self.screen, (0, 0, 0), (0, xy_max_pos), (
             xy_max_pos, xy_max_pos), self.border_thickness)
-        self.draw_arrow()
+        if not self.play_ok:
+            self.draw_arrow()
 
     def draw_arrow(self):
         if self.curr_cell:
@@ -104,6 +110,25 @@ class GameWindow:
                 x * self.cell_size, y * self.cell_size))
 
     def draw_board_tiles(self):
+        self.color_change_counter += 1
+        if self.color_change_counter >= (20 if not self.play_ok else 10):
+            self.color_change_counter = 0
+            self.tile_rgb += self.color_sum + abs(self.play_ok) * 10
+            self.tile_rgb = min(255, self.tile_rgb)
+            if self.tile_rgb >= 125 or self.tile_rgb <= 75:
+                self.color_sum *= -1
+            if self.play_ok:
+                self.color_sum = abs(self.color_sum)
+                self.blink_counter += 1
+        match self.play_ok:
+            case -1:
+                tile_color = (225, self.tile_rgb - 30, self.tile_rgb - 30)
+            case 0:
+                tile_color = (self.tile_rgb, self.tile_rgb, self.tile_rgb)
+            case 1:
+                tile_color = (self.tile_rgb - 30, 225, self.tile_rgb - 30)
+            case _:
+                tile_color = (0, 0, 0)
         font_color = (120, 120, 120)
         for i in range(len(self.game.board)):
             for j in range(len(self.game.board[0])):
@@ -149,7 +174,7 @@ class GameWindow:
                 border_width = 2
                 background_surface = pygame.Surface(
                     (self.cell_size - offset, self.cell_size - offset))
-                background_surface.fill((102, 102, 102))
+                background_surface.fill(tile_color)
                 pygame.draw.rect(
                     background_surface, (20, 20, 20),
                     (0, 0, background_surface.get_width(),
@@ -168,6 +193,14 @@ class GameWindow:
                 if is_blank:
                     is_blank = False
                     font_color = (220, 220, 220)
+        if self.blink_counter >= 12:
+            self.blink_counter = 0
+            self.color_change_counter = 0
+            self.tile_rgb = 100
+            self.play_ok = 0
+            self.current_word = []
+            self.word_start_cell = self.curr_cell = None
+            return
 
     def draw_info_section(self):
         grid_width = self.grid_size * self.cell_size + self.border_thickness
@@ -239,6 +272,52 @@ class GameWindow:
             self.screen.blit(letter_text, letter_rect)
             player_x += tile_size + tile_spacing
 
+    def blink_tiles(self):
+        font_color = (120, 120, 120)
+        self.color_change_counter += 1
+        if self.color_change_counter >= 35:
+            self.color_change_counter = 0
+            self.tile_rgb += self.color_sum
+            if self.tile_rgb <= 50 or self.tile_rgb >= 220:
+                self.tile_rgb = 100
+                self.play_ok = 0
+                return
+        if self.current_word:
+            start_x, start_y = self.word_start_cell
+            start_x *= self.cell_size
+            start_y *= self.cell_size
+            step_x, step_y = (0, self.cell_size) if self.arrow_down else (
+                self.cell_size, 0)
+            font_color = (220, 220, 220)
+            is_blank = False
+            for letter in ''.join(self.current_word).upper():
+                if letter == '*':
+                    is_blank = True
+                    continue
+                offset = 3
+                border_width = 2
+                background_surface = pygame.Surface(
+                    (self.cell_size - offset, self.cell_size - offset))
+                background_surface.fill((self.tile_rgb, 22, 22))
+                pygame.draw.rect(
+                    background_surface, (20, 20, 20),
+                    (0, 0, background_surface.get_width(),
+                     background_surface.get_height()),
+                    border_width
+                )
+                if is_blank:
+                    font_color = (255, 112, 112)
+                letter_text = self.font.render(letter, True, font_color)
+                letter_rect = letter_text.get_rect(
+                    center=(self.cell_size // 2, self.cell_size // 2))
+                background_surface.blit(letter_text, letter_rect)
+                self.screen.blit(background_surface, (start_x, start_y))
+                start_x += step_x
+                start_y += step_y
+                if is_blank:
+                    is_blank = False
+                    font_color = (220, 220, 220)
+
     def handle_events(self):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -281,13 +360,24 @@ class GameWindow:
                             self.curr_cell[0] + 1, self.curr_cell[1])
                 elif event.key == pygame.K_SPACE:
                     self.is_blank = True
+                elif event.key == pygame.K_BACKSPACE:
+                    if not self.current_word:
+                        continue
+                    self.current_word.pop()
+                    if self.arrow_down:
+                        self.curr_cell = (
+                            self.curr_cell[0], self.curr_cell[1] - 1)
+                    else:
+                        self.curr_cell = (
+                            self.curr_cell[0] - 1, self.curr_cell[1])
+                    self.is_blank = False
                 elif event.key == pygame.K_ESCAPE:
                     self.word_start_cell = self.curr_cell = None
                     self.current_word = []
                 elif event.key == pygame.K_RETURN and self.current_word:
                     word = ''.join(self.current_word)
                     start = (self.word_start_cell[1], self.word_start_cell[0])
-                    self.game.play_word(word, start, self.arrow_down)
-                    self.word_start_cell = self.curr_cell = None
-                    self.current_word = []
+                    play_ok = self.game.play_word(word, start, self.arrow_down)
+                    self.play_ok = 1 if play_ok else -1
                     self.game.print_board()
+                    self.color_change_counter = 0
