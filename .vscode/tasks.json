@@ -1,0 +1,22 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+      {
+        "label": "Activate Venv and Run Python File",
+        "type": "shell",
+        "command": "cmd",
+        "args": [
+          "/K",
+          "venv\\Scripts\\activate && python -m main"
+        ],
+        "group": {
+          "kind": "build",
+          "isDefault": true
+        },
+        "presentation": {
+          "reveal": "always"
+        },
+        "problemMatcher": []
+      }
+    ]
+  }

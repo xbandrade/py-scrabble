@@ -365,11 +365,17 @@ class GameWindow:
                         continue
                     self.current_word.pop()
                     if self.arrow_down:
-                        self.curr_cell = (
-                            self.curr_cell[0], self.curr_cell[1] - 1)
+                        if not self.curr_cell:
+                            self.curr_cell = (self.word_start_cell[0], 14)
+                        else:
+                            self.curr_cell = (
+                                self.curr_cell[0], self.curr_cell[1] - 1)
                     else:
-                        self.curr_cell = (
-                            self.curr_cell[0] - 1, self.curr_cell[1])
+                        if not self.curr_cell:
+                            self.curr_cell = (14, self.word_start_cell[1])
+                        else:
+                            self.curr_cell = (
+                                self.curr_cell[0] - 1, self.curr_cell[1])
                     self.is_blank = False
                 elif event.key == pygame.K_ESCAPE:
                     self.word_start_cell = self.curr_cell = None

@@ -5,7 +5,7 @@ from scrabble import Scrabble
 from trie import Trie
 
 
-def menu(game, trie):
+def menu(game, trie) -> None:
     info = '''
         Ordem de input: [palavra] [linha(1-indexed)] [coluna(1-indexed)]
         [direção: (h)orizontal/(v)ertical]
@@ -52,7 +52,7 @@ def menu(game, trie):
             print('Jogada inválida\n')
 
 
-def main():
+def main() -> None:
     trie = Trie()
     trie.populate_from_file('words_ptbr.txt')
     game = Scrabble(trie)

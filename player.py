@@ -4,7 +4,7 @@ from random import randint
 
 
 class Player:
-    def __init__(self, id=1):
+    def __init__(self, id=1) -> None:
         self.tiles = []
         self.score = 0
         self.id = id
@@ -16,14 +16,14 @@ class Player:
     def __str__(self):
         return str(self.id)
 
-    def draw_tiles(self, bag):
+    def draw_tiles(self, bag) -> None:
         draw = []
         while (bag and len(self.tiles) < 7):
             draw.append(bag.pop())
             self.tiles.append(draw[-1])
         self.previous_draw = draw
 
-    def has_tiles(self, word_chars):
+    def has_tiles(self, word_chars) -> bool:
         word = ''.join(word_chars)
         print('>>>> ', re.sub(r'\*(\w)', r'[\1]', word))
         counter = Counter(self.tiles)
@@ -34,13 +34,13 @@ class Player:
                 return False
         return True
 
-    def remove_tiles(self, tiles):
+    def remove_tiles(self, tiles) -> None:
         for tile in tiles:
             if '*' in tile:
                 tile = '*'
             self.tiles.remove(tile)
 
-    def exchange_tiles(self, tiles, bag):
+    def exchange_tiles(self, tiles, bag) -> bool:
         if len(tiles) > len(bag) or not all(t in self.tiles for t in tiles):
             print('Troca inválida\n')
             return False
