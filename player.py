@@ -12,8 +12,9 @@ class Player:
         self.previous_play = None
         self.previous_draw = None
         self.previous_score = 0
+        self.show_tiles = False
 
-    def __str__(self):
+    def __str__(self) -> str:
         return str(self.id)
 
     def draw_tiles(self, bag) -> None:

@@ -165,7 +165,7 @@ class Scrabble:
                     word, start, (start[0] + self.len(word) - 1, start[1]))))
         best_words.sort(key=lambda x: (-x[1], x[0]))
         player.best_words = []
-        print(f'\nMelhores palavras player {player}:')
+        print(f'\nMelhores palavras player {player}: ')
         for i, (word, score) in enumerate(best_words[:10]):
             print(f'{word} - {score}', end=' | ')
             if i > 0 and i % 5 == 0:
@@ -419,4 +419,5 @@ class Scrabble:
             'word': self.join_word(word),
             'play_score': play_score
         }
+        player.show_tiles = False
         return True

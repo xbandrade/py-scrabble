@@ -32,10 +32,14 @@ class GameWindow:
         self.color_change_counter = 0
         self.blink_counter = 0
         self.play_ok = 0
+        self.button1_clicking = False
+        self.button2_clicking = False
+        self.active_button = 1
         self.letters_accents = [
             'á', 'é', 'í', 'ó', 'ú', 'ã', 'õ', 'â', 'ê', 'ô',
             'Á', 'É', 'Í', 'Ó', 'Ú', 'Ã', 'Õ', 'Â', 'Ê', 'Ô']
         self.font = pygame.font.SysFont(None, 36)
+        self.small_font = pygame.font.SysFont(None, 28)
         self.font_color = (0, 0, 0)
         self.setup_grid_colors()
         self.setup_display()
@@ -231,7 +235,53 @@ class GameWindow:
         self.screen.blit(prev_play_text, prev_text_rect)
         self.draw_player_info()
 
-    def draw_player_info(self):
+    def switch_button_click(self, click):
+        if self.game.current_player == 1:
+            self.button1_clicking = click
+        else:
+            self.button2_clicking = click
+
+    def is_button_pressed(self):
+        if self.game.current_player == 1:
+            return self.button1_clicking
+        return self.button2_clicking
+
+    def draw_button(self, button_y, text, active=False) -> None:
+        button_width = 200
+        left = (self.grid_size * self.cell_size +
+                (self.info_width - button_width) / 2)
+        button_rect = pygame.Rect(left, button_y, button_width, 40)
+        button_text = self.small_font.render(text, True, (255, 255, 255))
+        button_text_rect = button_text.get_rect(center=button_rect.center)
+        button_text = self.small_font.render(text, True, (255, 255, 255))
+        button_text_rect = button_text.get_rect(center=button_rect.center)
+        if not active:
+            pygame.draw.rect(self.screen, (72, 72, 72), button_rect)
+            self.screen.blit(button_text, button_text_rect)
+            return
+        mouse_pos = pygame.mouse.get_pos()
+        button_pressed = pygame.mouse.get_pressed()[0]
+        if not self.is_button_pressed():
+            button_hovered = button_rect.collidepoint(mouse_pos)
+        else:
+            button_hovered = False
+        if button_pressed and button_hovered:
+            self.switch_button_click(True)
+        if not button_pressed and self.is_button_pressed():
+            self.on_click_button()
+            self.switch_button_click(False)
+        if self.is_button_pressed():
+            pygame.draw.rect(self.screen, (0, 200, 0), button_rect)
+        elif button_hovered:
+            pygame.draw.rect(self.screen, (0, 128, 0), button_rect)
+        else:
+            pygame.draw.rect(self.screen, (0, 0, 0), button_rect)
+        self.screen.blit(button_text, button_text_rect)
+
+    def on_click_button(self) -> None:
+        self.game.current_player.show_tiles = True
+
+    def draw_player_info(self) -> None:
         player1_tiles = self.game.player1.tiles
         player2_tiles = self.game.player2.tiles
         tile_size = 40
@@ -246,6 +296,8 @@ class GameWindow:
             f'Player 1 - {self.game.player1.score} pontos',
             True, (180, 100, 100))
         p1_text_rect = p1_text.get_rect(center=p1_rect.center)
+        active = self.game.current_player.id == 1
+        self.draw_button(p1_rect.y - self.cell_size, 'Exibir Letras', active)
         self.screen.blit(p1_text, p1_text_rect)
         p2_rect = pygame.Rect(self.grid_size * self.cell_size,
                               player2_y + tile_size + 10, self.info_width, 30)
@@ -253,12 +305,14 @@ class GameWindow:
             f'Player 2 - {self.game.player2.score} pontos',
             True, (100, 100, 180))
         p2_text_rect = p2_text.get_rect(center=p2_rect.center)
+        active = self.game.current_player.id == 2
+        self.draw_button(p2_rect.y + self.cell_size, 'Exibir Letras', active)
         self.screen.blit(p2_text, p2_text_rect)
         for tile in sorted(player2_tiles):
             tile_rect = pygame.Rect(player_x, player2_y, tile_size, tile_size)
             pygame.draw.rect(self.screen, (0, 0, 128), tile_rect)
-            letter_text = self.font.render(
-                tile.upper(), True, (200, 200, 200))
+            show_tile = tile.upper() if self.game.player2.show_tiles else ''
+            letter_text = self.font.render(show_tile, True, (200, 200, 200))
             letter_rect = letter_text.get_rect(center=tile_rect.center)
             self.screen.blit(letter_text, letter_rect)
             player_x += tile_size + tile_spacing
@@ -266,13 +320,13 @@ class GameWindow:
         for tile in sorted(player1_tiles):
             tile_rect = pygame.Rect(player_x, player1_y, tile_size, tile_size)
             pygame.draw.rect(self.screen, (128, 0, 0), tile_rect)
-            letter_text = self.font.render(
-                tile.upper(), True, (200, 200, 200))
+            show_tile = tile.upper() if self.game.player1.show_tiles else ''
+            letter_text = self.font.render(show_tile, True, (200, 200, 200))
             letter_rect = letter_text.get_rect(center=tile_rect.center)
             self.screen.blit(letter_text, letter_rect)
             player_x += tile_size + tile_spacing
 
-    def blink_tiles(self):
+    def blink_tiles(self) -> None:
         font_color = (120, 120, 120)
         self.color_change_counter += 1
         if self.color_change_counter >= 35:
@@ -318,7 +372,7 @@ class GameWindow:
                     is_blank = False
                     font_color = (220, 220, 220)
 
-    def handle_events(self):
+    def handle_events(self) -> None:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
@@ -387,3 +441,5 @@ class GameWindow:
                     self.play_ok = 1 if play_ok else -1
                     self.game.print_board()
                     self.color_change_counter = 0
+                    if self.play_ok:
+                        self.active_button = self.game.current_player.id
