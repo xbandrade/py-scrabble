@@ -233,8 +233,8 @@ class Scrabble:
         else:
             self.current_player = self.player1
 
-    def challenge(self, current_player):
-        player = self.player1 if current_player == 2 else self.player2
+    def challenge(self):
+        player = self.player1 if self.current_player.id == 2 else self.player2
         if not player.previous_play:
             print('O oponente não jogou nenhuma palavra')
             return False
@@ -275,11 +275,24 @@ class Scrabble:
                     invalid_words.append(word)
         if invalid_words:
             print('Desafio aceito! Palavras inválidas: '
-                  f'{", ".join(invalid_words)}')
+                  f'{', '.join(invalid_words)}')
+            self.previous_play_info = {
+                'challenge': True,
+                'challenge_ok': 'Aceito',
+                'challenged_player': player.id,
+                'challenger': 3 - player.id,
+                'invalid_words': invalid_words
+            }
             self.undo_play(player)
             return True
         print('Desafio recusado, a jogada anterior foi válida!')
         self.switch_current_player()
+        self.previous_play_info = {
+            'challenge': True,
+            'challenge_ok': 'Rejeitado',
+            'challenger': 3 - player.id,
+            'challenged_player': player.id
+        }
         return False
 
     def get_word_from_board(self, start, end):
@@ -300,6 +313,7 @@ class Scrabble:
         if not player.previous_draw:
             print('Não há nenhuma jogada anterior\n')
             return False
+        player.remove_tiles(player.previous_draw)
         for tile in player.previous_draw:
             self.bag.insert(random.randint(0, len(self.bag)), tile)
         player.previous_draw = None
@@ -307,6 +321,7 @@ class Scrabble:
             letter = self.board[i][j].letter
             player.tiles.append(letter)
             self.board[i][j].clear_square()
+            self.tiles_on_board -= 1
         return True
 
     def get_extra_score(self, path):
