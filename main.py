@@ -5,53 +5,6 @@ from scrabble import Scrabble
 from trie import Trie
 
 
-def menu(game, trie) -> None:
-    info = '''
-        Ordem de input: [palavra] [linha(1-indexed)] [coluna(1-indexed)]
-        [direção: (h)orizontal/(v)ertical]
-    '''
-    def msg(x): return f'Player {x}: [palavra] [linha] [coluna] [h/v] -> '
-    current_player = 1
-    while (c := input(msg(current_player))) != 'q':
-        if c == 's':
-            game.show_bag()
-            game.show_tiles()
-            game.show_best_words(1)
-            game.show_best_words(2)
-            game.show_scores()
-            game.print_board()
-            continue
-        elif c == 'c':
-            challenge_accepted = game.challenge(current_player)
-            if not challenge_accepted:
-                current_player = 3 - current_player
-            continue
-        if c.startswith('info'):
-            print(info)
-            continue
-        elif c.startswith('-- '):  # Exchange
-            _, exchange = c.split(' ')
-            player = game.get_player(current_player)
-            valid_play = player.exchange_tiles(exchange, game.bag)
-        else:
-            try:
-                word, row, col, direction = c.split(' ')
-                row, col = int(row), int(col)
-            except ValueError:
-                print('Valor inválido\n')
-                continue
-            direction = direction.lower() in (
-                'v', 'vertical', 'ver', 'down', 'd')
-            word = trie.clear_word(word)
-            valid_play = game.play_word(word, (row - 1, col - 1), direction)
-        if valid_play:
-            game.print_board()
-            game.show_scores()
-            current_player = 3 - current_player
-        else:
-            print('Jogada inválida\n')
-
-
 def main() -> None:
     trie = Trie()
     trie.populate_from_file('words_ptbr.txt')

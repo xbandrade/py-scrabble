@@ -322,6 +322,7 @@ class Scrabble:
             player.tiles.append(letter)
             self.board[i][j].clear_square()
             self.tiles_on_board -= 1
+        player.score = player.previous_score
         return True
 
     def get_extra_score(self, path):

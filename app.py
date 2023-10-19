@@ -283,7 +283,7 @@ class GameWindow:
         self.game.challenge()
         self.can_challenge = False
 
-    def draw_info_section(self):
+    def draw_info_section(self) -> None:
         grid_width = self.grid_size * self.cell_size + self.border_thickness
         info_rect = pygame.Rect(
             grid_width, 0, self.info_width, self.screen.get_height())
