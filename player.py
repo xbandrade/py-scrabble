@@ -26,7 +26,6 @@ class Player:
 
     def has_tiles(self, word_chars) -> bool:
         word = ''.join(word_chars)
-        print('>>>> ', re.sub(r'\*(\w)', r'[\1]', word))
         counter = Counter(self.tiles)
         word = re.sub(r'\*(\w)', r'*\1', word)
         for letter in word_chars:

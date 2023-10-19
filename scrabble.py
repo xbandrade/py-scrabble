@@ -173,7 +173,7 @@ class Scrabble:
             player.best_words.append((word, score))
         print()
 
-    def split_word(self, word):
+    def split_word(self, word) -> list:
         if isinstance(word, list):
             word = ''.join(word)
         word = re.sub(r'\[(\w)\]', r'*\1', word)
@@ -188,7 +188,7 @@ class Scrabble:
                 i += 1
         return split_result
 
-    def join_word(self, word):
+    def join_word(self, word) -> str:
         return re.sub(r'\*(\w)', r'[\1]', ''.join(word))
 
     def show_tiles(self, player=0):
@@ -227,7 +227,7 @@ class Scrabble:
                     return True
         return False
 
-    def switch_current_player(self):
+    def switch_current_player(self) -> None:
         if self.current_player == self.player1:
             self.current_player = self.player2
         else:
@@ -241,7 +241,7 @@ class Scrabble:
         path = player.previous_play
         prev_word = self.get_word_from_board(path[0], path[-1])
         invalid_words = []
-        if not self.trie.search(prev_word):
+        if not self.trie.search(self.clear_word(prev_word)):
             invalid_words.append(prev_word)
         if path[0][0] == path[-1][0]:
             for i, j in path:
@@ -256,7 +256,7 @@ class Scrabble:
                 if start == end:
                     continue
                 word = self.get_word_from_board(start, end)
-                if not self.trie.search(word):
+                if not self.trie.search(self.clear_word(word)):
                     invalid_words.append(word)
         else:
             for i, j in path:
@@ -271,7 +271,7 @@ class Scrabble:
                 if start == end:
                     continue
                 word = self.get_word_from_board(start, end)
-                if not self.trie.search(word):
+                if not self.trie.search(self.clear_word(word)):
                     invalid_words.append(word)
         if invalid_words:
             print('Desafio aceito! Palavras inválidas: '
@@ -381,12 +381,9 @@ class Scrabble:
                     extra_score += self.get_word_score(word, start, end)
         return extra_score
 
-    def play_word(self, word, start_pos, down=True):
+    def play_word(self, word, start_pos, down=True) -> bool:
         player = self.current_player
         word = self.split_word(word)
-        if not player.has_tiles(word):
-            print('Você não possui as letras para jogar esta palavra')
-            return False
         if down:
             end_pos = (start_pos[0] + len(word) - 1, start_pos[1])
             word_path = [(i, start_pos[1]) for i in range(
@@ -406,12 +403,19 @@ class Scrabble:
             print('Sua palavra deve tocar em uma palavra já jogada')
             return False
         tiles_to_add = {}
+        not_on_board = []
         for i, (a, b) in enumerate(word_path):
             tile = word[i]
-            if self.board[a][b].is_occupied and str(self.board[a][b]) != tile:
-                print('Posição ocupada por outra letra')
-                return False
+            if self.board[a][b].is_occupied:
+                if str(self.board[a][b]) != tile:
+                    print('Posição ocupada por outra letra')
+                    return False
+            else:
+                not_on_board.append(tile)
             tiles_to_add[(a, b)] = tile
+        if not player.has_tiles(not_on_board):
+            print('Você não possui as letras para jogar esta palavra')
+            return False
         for (a, b), tile in tiles_to_add.items():
             self.board[a][b].set_letter(tile)
         word_score = self.get_word_score(word, start_pos, end_pos)
@@ -421,7 +425,7 @@ class Scrabble:
         self.tiles_on_board += len(tiles_to_add)
         self.previous_played_tiles = tiles_to_add.keys()
         try:
-            player.remove_tiles(word)
+            player.remove_tiles(not_on_board)
         except ValueError:
             print('Jogada inválida!')
             return False
