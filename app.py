@@ -253,7 +253,7 @@ class GameWindow:
         button_width = 100
         left = (self.grid_size * self.cell_size +
                 (self.info_width - button_width) / 2)
-        button_rect = pygame.Rect(left, height, button_width, 40)
+        button_rect = pygame.Rect(left, height - 65, button_width, 40)
         button_text = self.small_font.render('Desafiar', True, (255, 255, 255))
         button_text_rect = button_text.get_rect(center=button_rect.center)
         mouse_pos = pygame.mouse.get_pos()
@@ -283,44 +283,66 @@ class GameWindow:
         self.game.challenge()
         self.can_challenge = False
 
+    def draw_unseen_tiles(self, info_rect):
+        unseen_text_counter = [
+            f'{c[1]}{c[0].upper()}' for c in self.game.unseen_tiles.items()]
+        unseen_list = []
+        for i in range(0, len(unseen_text_counter), 10):
+            unseen_list.append(' '.join(unseen_text_counter[i:i + 10]))
+        pad = 10
+        for unseen_str in unseen_list:
+            unseen_letters_rect = self.get_label_rect(
+                info_rect, 0, pad, 30, (100, 100, 100),
+                unseen_str, 1
+            )
+            self.screen.blit(*unseen_letters_rect)
+            pad += 25
+
+    def get_label_rect(self, rect, padx, pady, height, color, text, font=0):
+        font = self.font if not font else self.small_font
+        obj_rect = pygame.Rect(
+            rect.left + padx, rect.centery + pady, self.info_width, height)
+        obj_text = font.render(text, True, color)
+        obj_text_rect = obj_text.get_rect(center=obj_rect.center)
+        return obj_text, obj_text_rect
+
     def draw_info_section(self) -> None:
         grid_width = self.grid_size * self.cell_size + self.border_thickness
         info_rect = pygame.Rect(
             grid_width, 0, self.info_width, self.screen.get_height())
         pygame.draw.rect(self.screen, (200, 200, 200), info_rect)
-        curr_player_rect = pygame.Rect(
-            info_rect.left, info_rect.centery - 45, self.info_width, 30)
-        curr_player_text = self.font.render(
-            f'Jogador atual: Player {self.game.current_player}',
-            True, (10, 100, 100))
-        curr_text_rect = curr_player_text.get_rect(
-            center=curr_player_rect.center)
-        prev_play_rect = pygame.Rect(
-            info_rect.left, info_rect.centery - 15, self.info_width, 30)
+        current_player_text_rect = self.get_label_rect(
+            info_rect, 0, -135, 30, (10, 100, 100),
+            f'Jogador atual: Player {self.game.current_player}'
+        )
         if self.game.previous_play_info:
             if 'challenge' in self.game.previous_play_info:
-                prev_play_text = self.font.render(
-                    'Desafio do Player '
-                    f'{self.game.previous_play_info['challenger']} '
-                    f'{self.game.previous_play_info['challenge_ok']}',
-                    True, (0, 100, 0)
+                previous_play_text = (
+                    'Desafio do Player ' +
+                    f'{self.game.previous_play_info['challenger']} ' +
+                    f'{self.game.previous_play_info['challenge_ok']}'
                 )
             else:
-                prev_player = self.game.previous_play_info.get('player')
-                prev_word = self.game.previous_play_info.get('word')
-                prev_play_score = self.game.previous_play_info.get(
+                previous_player = self.game.previous_play_info.get('player')
+                previous_word = self.game.previous_play_info.get('word')
+                previous_play_score = self.game.previous_play_info.get(
                     'play_score')
-                prev_play_text = self.font.render(
-                    f'Player {prev_player} | {prev_word} | {prev_play_score}',
-                    True, (0, 100, 0))
+                previous_play_text = (
+                    f'Player {previous_player} | {previous_word} | ' +
+                    f'{previous_play_score}'
+                )
         else:
-            prev_play_text = self.font.render(
-                'Nenhuma palavra foi jogada', True, (0, 100, 0))
-        prev_text_rect = prev_play_text.get_rect(center=prev_play_rect.center)
-        self.screen.blit(curr_player_text, curr_text_rect)
-        self.screen.blit(prev_play_text, prev_text_rect)
+            previous_play_text = 'Nenhuma palavra foi jogada'
+        previous_play_text_rect = self.get_label_rect(
+            info_rect, 0, -105, 30, (0, 100, 0), previous_play_text)
+        unseen_label_rect = self.get_label_rect(
+            info_rect, 0, -15, 30, (50, 50, 50), 'Letras não jogadas:')
+        self.screen.blit(*current_player_text_rect)
+        self.screen.blit(*previous_play_text_rect)
+        self.screen.blit(*unseen_label_rect)
+        self.draw_unseen_tiles(info_rect)
         if self.can_challenge:
-            self.draw_challenge_button(info_rect.centery + 20)
+            self.draw_challenge_button(info_rect.centery)
         self.draw_player_info()
 
     def draw_player_info(self) -> None:
