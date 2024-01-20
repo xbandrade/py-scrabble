@@ -40,13 +40,14 @@ class GameWindow:
         self.letters_accents = [
             'á', 'é', 'í', 'ó', 'ú', 'ã', 'õ', 'â', 'ê', 'ô',
             'Á', 'É', 'Í', 'Ó', 'Ú', 'Ã', 'Õ', 'Â', 'Ê', 'Ô']
+        self.big_font = pygame.font.SysFont(None, 52)
         self.font = pygame.font.SysFont(None, 36)
         self.small_font = pygame.font.SysFont(None, 28)
         self.font_color = (0, 0, 0)
         self.setup_grid_colors()
         self.setup_display()
 
-    def setup_display(self):
+    def setup_display(self) -> None:
         total_width = (self.grid_size * self.cell_size +
                        self.info_width + self.border_thickness)
         self.screen = pygame.display.set_mode(
@@ -54,7 +55,7 @@ class GameWindow:
                            self.border_thickness // 2)))
         pygame.display.set_caption('Scrabble')
 
-    def setup_grid_colors(self):
+    def setup_grid_colors(self) -> None:
         for i in range(len(self.game.board)):
             for j in range(len(self.game.board[0])):
                 wm = self.game.board[i][j].word_multiplier
@@ -68,7 +69,7 @@ class GameWindow:
                 elif lm == 3:
                     self.grid_matrix[i][j] = (0, 0, 255, 180)
 
-    def draw_grid(self):
+    def draw_grid(self) -> None:
         self.screen.fill((220, 220, 220))
         border_color = (25, 25, 25)
         border_width = 2
@@ -107,7 +108,7 @@ class GameWindow:
         if not self.play_ok:
             self.draw_arrow()
 
-    def draw_arrow(self):
+    def draw_arrow(self) -> None:
         if self.curr_cell:
             x, y = self.curr_cell
             arrow_image = (self.arrow_img_down if self.arrow_down
@@ -115,7 +116,7 @@ class GameWindow:
             self.screen.blit(arrow_image, (
                 x * self.cell_size, y * self.cell_size))
 
-    def draw_board_tiles(self):
+    def draw_board_tiles(self) -> None:
         self.color_change_counter += 1
         if self.color_change_counter >= (20 if not self.play_ok else 10):
             self.color_change_counter = 0
@@ -208,18 +209,20 @@ class GameWindow:
             self.word_start_cell = self.curr_cell = None
             return
 
-    def switch_button_click(self, click):
+    def switch_button_click(self, click) -> None:
         if self.game.current_player == 1:
             self.button1_clicking = click
         else:
             self.button2_clicking = click
 
-    def is_show_tiles_button_pressed(self):
+    def is_show_tiles_button_pressed(self) -> bool:
         if self.game.current_player == 1:
             return self.button1_clicking
         return self.button2_clicking
 
     def draw_show_tiles_button(self, button_y, text, active=False) -> None:
+        if self.game.winner:
+            return
         button_width = 200
         left = (self.grid_size * self.cell_size +
                 (self.info_width - button_width) / 2)
@@ -249,7 +252,7 @@ class GameWindow:
             pygame.draw.rect(self.screen, (0, 0, 0), button_rect)
         self.screen.blit(button_text, button_text_rect)
 
-    def draw_challenge_button(self, height):
+    def draw_challenge_button(self, height) -> None:
         button_width = 100
         left = (self.grid_size * self.cell_size +
                 (self.info_width - button_width) / 2)
@@ -283,9 +286,19 @@ class GameWindow:
         self.game.challenge()
         self.can_challenge = False
 
-    def draw_unseen_tiles(self, info_rect):
+    def draw_unseen_tiles(self, info_rect) -> None:
+        if self.game.winner:
+            winner_rect = self.get_label_rect(
+                info_rect, 0, 10, 30, (100, 100, 100),
+                f'Player {self.game.winner} venceu!', 1
+            )
+            self.screen.blit(*winner_rect)
+            return
         unseen_text_counter = [
-            f'{c[1]}{c[0].upper()}' for c in self.game.unseen_tiles.items()]
+            f'{k}{v.upper()}'
+            for v, k in self.game.unseen_tiles.items()
+            if k != 0
+        ]
         unseen_list = []
         for i in range(0, len(unseen_text_counter), 10):
             unseen_list.append(' '.join(unseen_text_counter[i:i + 10]))
@@ -299,7 +312,13 @@ class GameWindow:
             pad += 25
 
     def get_label_rect(self, rect, padx, pady, height, color, text, font=0):
-        font = self.font if not font else self.small_font
+        match font:
+            case 1:
+                font = self.small_font
+            case 2:
+                font = self.big_font
+            case _:
+                font = self.font
         obj_rect = pygame.Rect(
             rect.left + padx, rect.centery + pady, self.info_width, height)
         obj_text = font.render(text, True, color)
@@ -339,10 +358,11 @@ class GameWindow:
             info_rect, 0, -15, 30, (50, 50, 50), 'Letras não jogadas:')
         self.screen.blit(*current_player_text_rect)
         self.screen.blit(*previous_play_text_rect)
-        self.screen.blit(*unseen_label_rect)
+        if not self.game.winner:
+            self.screen.blit(*unseen_label_rect)
+            if self.can_challenge:
+                self.draw_challenge_button(info_rect.centery)
         self.draw_unseen_tiles(info_rect)
-        if self.can_challenge:
-            self.draw_challenge_button(info_rect.centery)
         self.draw_player_info()
 
     def draw_player_info(self) -> None:
@@ -360,19 +380,19 @@ class GameWindow:
             f'Player 1 - {self.game.player1.score} pontos',
             True, (180, 100, 100))
         p1_text_rect = p1_text.get_rect(center=p1_rect.center)
-        active = self.game.current_player.id == 1
+        active = self.game.winner or self.game.current_player.id == 1
         self.draw_show_tiles_button(
             p1_rect.y - self.cell_size, 'Exibir Letras', active)
-        self.screen.blit(p1_text, p1_text_rect)
         p2_rect = pygame.Rect(self.grid_size * self.cell_size,
                               player2_y + tile_size + 10, self.info_width, 30)
         p2_text = self.font.render(
             f'Player 2 - {self.game.player2.score} pontos',
             True, (100, 100, 180))
         p2_text_rect = p2_text.get_rect(center=p2_rect.center)
-        active = self.game.current_player.id == 2
+        active = self.game.winner or self.game.current_player.id == 2
         self.draw_show_tiles_button(
             p2_rect.y + self.cell_size, 'Exibir Letras', active)
+        self.screen.blit(p1_text, p1_text_rect)
         self.screen.blit(p2_text, p2_text_rect)
         for tile in sorted(player2_tiles):
             tile_rect = pygame.Rect(player_x, player2_y, tile_size, tile_size)
@@ -507,6 +527,9 @@ class GameWindow:
                     self.play_ok = 1 if play_ok else -1
                     self.game.print_board()
                     self.color_change_counter = 0
-                    if play_ok:
+                    if self.game.winner:
+                        self.game.player1.show_tiles = True
+                        self.game.player2.show_tiles = True
+                    elif play_ok:
                         self.active_button = self.game.current_player.id
                         self.can_challenge = True

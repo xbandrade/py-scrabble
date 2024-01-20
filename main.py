@@ -1,8 +1,6 @@
 import pygame
 
-from app import GameWindow
-from scrabble import Scrabble
-from trie import Trie
+from src import GameWindow, Scrabble, Trie
 
 
 def main() -> None:
@@ -15,10 +13,11 @@ def main() -> None:
     running = True
     app = GameWindow(15, 48, game)
     while running:
-        app.handle_events()
         app.draw_grid()
+        app.handle_events()
         app.draw_info_section()
         app.draw_board_tiles()
+        app.draw_arrow()
         pygame.display.flip()
     pygame.quit()
 

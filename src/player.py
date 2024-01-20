@@ -17,6 +17,9 @@ class Player:
     def __str__(self) -> str:
         return str(self.id)
 
+    def __lt__(self, other):
+        return self.score < other.score
+
     def draw_tiles(self, bag) -> None:
         draw = []
         while (bag and len(self.tiles) < 7):

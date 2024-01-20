@@ -2,8 +2,8 @@ import random
 import re
 from collections import Counter, defaultdict, deque
 
-from player import Player
-from trie import Trie
+from src.player import Player
+from src.trie import Trie
 
 
 class BoardSquare:
@@ -58,6 +58,7 @@ class Scrabble:
         self.center = (7, 7)
         self.previous_play_info = {}
         self.unseen_tiles = Counter(self.initial_tiles)
+        self.winner = None
         self.start_game()
 
     def start_game(self):
@@ -338,6 +339,7 @@ class Scrabble:
             player.tiles.append(letter)
             self.board[i][j].clear_square()
             self.tiles_on_board -= 1
+            self.unseen_tiles[letter] += 1
         player.score = player.previous_score
         return True
 
@@ -397,8 +399,39 @@ class Scrabble:
                     extra_score += self.get_word_score(word, start, end)
         return extra_score
 
+    def get_full_word(self, start, word, down=True):
+        full_word = word.split()
+        if down:
+            end_x = start[0] + self.len(word) - 1
+            end_y = start[1]
+            start_x = start[0]
+            for i in range(end_x + 1, self.len(word)):
+                if not self.board[i][end_y].is_occupied:
+                    break
+                full_word.append(self.board[i][end_y].letter)
+            for i in range(start_x - 1, -1, -1):
+                if not self.board[i][end_y].is_occupied:
+                    break
+                start = (i, end_y)
+                full_word.insert(0, self.board[i][end_y].letter)
+            return start, full_word
+        end_x = start[0]
+        end_y = start[1] + self.len(word) - 1
+        start_y = start[1]
+        for i in range(end_y + 1, self.len(word)):
+            if not self.board[end_x][i].is_occupied:
+                break
+            full_word.append(self.board[end_x][i].letter)
+        for i in range(start_y - 1, -1, -1):
+            if not self.board[end_x][i].is_occupied:
+                break
+            start = (end_x, i)
+            full_word.insert(0, self.board[end_x][i].letter)
+        return start, full_word
+
     def play_word(self, word, start_pos, down=True) -> bool:
         player = self.current_player
+        start_pos, word = self.get_full_word(start_pos, word, down)
         word = self.split_word(word)
         word_path, end_pos = self.get_word_path(start_pos, down, word)
         if end_pos[0] > 14 or end_pos[1] > 14:
@@ -427,6 +460,7 @@ class Scrabble:
             return False
         for (a, b), tile in tiles_to_add.items():
             self.board[a][b].set_letter(tile)
+            self.unseen_tiles['*' if '*' in tile else tile] -= 1
         word_score = self.get_word_score(word, start_pos, end_pos)
         player.previous_score = player.score
         play_score = word_score + self.get_extra_score(word_path)
@@ -449,4 +483,7 @@ class Scrabble:
             'play_score': play_score
         }
         player.show_tiles = False
+        if len(self.bag) == 0 and not player.tiles:
+            self.winner = max(self.player1, self.player2)
+            print(f'Player {self.winner} venceu!')
         return True
