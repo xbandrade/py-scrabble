@@ -4,7 +4,7 @@ from random import randint
 
 
 class Player:
-    def __init__(self, id=1) -> None:
+    def __init__(self, id=1, is_bot=False) -> None:
         self.tiles = []
         self.score = 0
         self.id = id
@@ -13,6 +13,7 @@ class Player:
         self.previous_draw = None
         self.previous_score = 0
         self.show_tiles = False
+        self.is_bot = is_bot
 
     def __str__(self) -> str:
         return str(self.id)

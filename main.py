@@ -6,9 +6,12 @@ from src import GameWindow, Scrabble, Trie
 def main() -> None:
     trie = Trie()
     trie.populate_from_file('words_ptbr.txt')
-    game = Scrabble(trie)
+    game = Scrabble(trie, vs_bot=True)
     game.print_board()
     game.show_scores()
+    best1 = game.show_best_words()[0]
+    best2 = game.show_best_words(2)[0]
+    print(f'P1 best word: {best1}\nP2 best word: {best2}')
     game.show_tiles()
     running = True
     app = GameWindow(15, 48, game)

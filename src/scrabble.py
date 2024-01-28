@@ -1,7 +1,8 @@
-import random
 import re
 from collections import Counter, defaultdict, deque
+from random import randint, random, shuffle
 
+from src.bot import Bot
 from src.player import Player
 from src.trie import Trie
 
@@ -33,13 +34,13 @@ class BoardSquare:
 
 
 class Scrabble:
-    def __init__(self, trie: Trie):
-        self.values = {
+    def __init__(self, trie: Trie, vs_bot=False):
+        self.values = defaultdict(int, {
             'a': 1, 'b': 3, 'c': 2, 'ç': 3, 'd': 2, 'e': 1, 'f': 4,
             'g': 4, 'h': 4, 'i': 1, 'j': 5, 'l': 2, 'm': 1, 'n': 3,
             'o': 1, 'p': 2, 'q': 6, 'r': 1, 's': 1, 't': 1,
-            'u': 1, 'v': 4, 'x': 8, 'z': 8,
-        }
+            'u': 1, 'v': 4, 'x': 8, 'z': 8, '*': 0
+        })
         self.initial_tiles = list(
             'a' * 14 + 'b' * 3 + 'c' * 4 + 'ç' * 2 + 'd' * 5 + 'e' * 11 +
             'f' * 2 + 'g' * 2 + 'h' * 2 + 'i' * 10 + 'j' * 2 + 'l' * 5 +
@@ -50,6 +51,7 @@ class Scrabble:
         self.trie = trie
         self.board = [[BoardSquare() for _ in range(15)] for _ in range(15)]
         self.bag = None
+        self.vs_bot = vs_bot
         self.player1 = None
         self.player2 = None
         self.current_player = None
@@ -63,10 +65,10 @@ class Scrabble:
 
     def start_game(self):
         self.set_multipliers()
-        random.shuffle(self.initial_tiles)
+        shuffle(self.initial_tiles)
         self.bag = deque(self.initial_tiles)
-        self.player1 = Player(1)
-        self.player2 = Player(2)
+        self.player1 = Player(1) if not self.vs_bot else Bot(1)
+        self.player2 = Player(2)  # if not self.vs_bot else Bot(2)
         self.player1.draw_tiles(self.bag)
         self.player2.draw_tiles(self.bag)
         self.current_player = self.player1
@@ -120,21 +122,21 @@ class Scrabble:
         if not on_board:
             on_board = []
 
-        def backtrack(node, letters, letter_freq):
+        def dfs(node, letters, letter_freq):
             if node.is_word and self.is_play_valid(letters, start, dir_down):
                 valid_words.append(''.join(letters))
             for letter, child in node.children.items():
                 if letter_freq[letter] > 0:
                     letters.append(letter)
                     letter_freq[letter] -= 1
-                    backtrack(child, letters, letter_freq)
+                    dfs(child, letters, letter_freq)
                     letters.pop()
                     letter_freq[letter] += 1
             if letter_freq['*'] > 0:
                 for letter, child in node.children.items():
                     letters.append(f'[{letter}]')
                     letter_freq['*'] -= 1
-                    backtrack(child, letters, letter_freq)
+                    dfs(child, letters, letter_freq)
                     letters.pop()
                     letter_freq['*'] += 1
 
@@ -143,9 +145,7 @@ class Scrabble:
                         else self.player2.tiles)
         for letter in player_tiles + on_board:
             letter_freq[letter.lower()] += 1
-        root = self.trie.root
-        letters = []
-        backtrack(root, letters, letter_freq)
+        dfs(self.trie.root, [], letter_freq)
         return sorted(valid_words, key=lambda x: (-len(x), x))
 
     def show_best_words(self, player=1, start_tile=(7, 7), down=True):
@@ -160,15 +160,9 @@ class Scrabble:
             else:
                 best_words.append((word, self.get_word_score(
                     word, start, (start[0] + self.len(word) - 1, start[1]))))
-        best_words.sort(key=lambda x: (-x[1], x[0]))
+        best_words = sorted(best_words, key=lambda x: (-x[1], x[0]))[:10]
         player.best_words = []
-        print(f'\nMelhores palavras player {player}: ')
-        for i, (word, score) in enumerate(best_words[:10]):
-            print(f'{word} - {score}', end=' | ')
-            if i > 0 and i % 5 == 0:
-                print()
-            player.best_words.append((word, score))
-        print()
+        return best_words or ['']
 
     def clear_word(self, word):
         if isinstance(word, list):
@@ -332,7 +326,7 @@ class Scrabble:
             return False
         player.remove_tiles(player.previous_draw)
         for tile in player.previous_draw:
-            self.bag.insert(random.randint(0, len(self.bag)), tile)
+            self.bag.insert(randint(0, len(self.bag)), tile)
         player.previous_draw = None
         for i, j in self.previous_played_tiles:
             letter = self.board[i][j].letter
@@ -405,7 +399,7 @@ class Scrabble:
             end_x = start[0] + self.len(word) - 1
             end_y = start[1]
             start_x = start[0]
-            for i in range(end_x + 1, self.len(word)):
+            for i in range(end_x + 1, 15):
                 if not self.board[i][end_y].is_occupied:
                     break
                 full_word.append(self.board[i][end_y].letter)
@@ -414,11 +408,11 @@ class Scrabble:
                     break
                 start = (i, end_y)
                 full_word.insert(0, self.board[i][end_y].letter)
-            return start, full_word
+            return start, ''.join(full_word)
         end_x = start[0]
         end_y = start[1] + self.len(word) - 1
         start_y = start[1]
-        for i in range(end_y + 1, self.len(word)):
+        for i in range(end_y + 1, 15):
             if not self.board[end_x][i].is_occupied:
                 break
             full_word.append(self.board[end_x][i].letter)
@@ -427,7 +421,53 @@ class Scrabble:
                 break
             start = (end_x, i)
             full_word.insert(0, self.board[end_x][i].letter)
-        return start, full_word
+        return start, ''.join(full_word)
+
+    def bot_play(self):
+        if not self.current_player.is_bot:
+            raise ValueError('Player não é um bot')
+        word, _ = self.show_best_words()[0]
+        if not word:
+            print('O bot não encontrou palavras válidas')
+            return
+        if self.tiles_on_board == 0:
+            down = random() < 0.5
+            start_pos = ((randint(7 - len(word) + 1, 7), 7)
+                         if down else (7, randint(7 - len(word) + 1, 7)))
+            self.play_word(word, start_pos, down)
+            return
+        for _ in range(300):
+            x, y = randint(1, 13), randint(1, 13)
+            if self.board[x][y].is_occupied:
+                dy = randint(-len(word) + 1, len(word) - 1)
+                ny = y + dy
+                if (ny >= 0 and ny + len(word) <= 14 and
+                    not self.get_word_from_board(
+                        (x - 1, ny), (x - 1, ny + len(word)))):
+                    self.play_word(word, (x - 1, ny), False)
+                    return
+                dy = randint(-len(word) + 1, len(word) - 1)
+                ny = y + dy
+                if (ny >= 0 and ny + len(word) <= 14 and
+                    not self.get_word_from_board(
+                        (x + 1, ny), (x + 1, ny + len(word)))):
+                    self.play_word(word, (x + 1, ny), False)
+                    return
+                dx = randint(-len(word) + 1, len(word) - 1)
+                nx = x + dx
+                if (nx >= 0 and nx + len(word) <= 14 and
+                    not self.get_word_from_board(
+                        (nx, y - 1), (nx + len(word), y - 1))):
+                    self.play_word(word, (nx, y - 1), True)
+                    return
+                dx = randint(-len(word) + 1, len(word) - 1)
+                nx = x + dx
+                if (nx >= 0 and nx + len(word) <= 14 and
+                    not self.get_word_from_board(
+                        (nx, y + 1), (nx + len(word), y + 1))):
+                    self.play_word(word, (nx, y + 1), True)
+                    return
+        print('O bot não encontrou jogadas válidas')
 
     def play_word(self, word, start_pos, down=True) -> bool:
         player = self.current_player
@@ -439,7 +479,7 @@ class Scrabble:
             return False
         if self.tiles_on_board == 0:
             if self.center not in word_path:
-                print('A primeira palavra deve passar pelo centro (8, 8)')
+                print('A primeira palavra deve passar pelo centro (7, 7)')
                 return False
         elif not self.tiles_touching(word_path):
             print('Sua palavra deve tocar em uma palavra já jogada')
@@ -464,6 +504,8 @@ class Scrabble:
         word_score = self.get_word_score(word, start_pos, end_pos)
         player.previous_score = player.score
         play_score = word_score + self.get_extra_score(word_path)
+        if len(not_on_board) == 7:
+            play_score += 50
         player.score += play_score
         self.tiles_on_board += len(tiles_to_add)
         self.previous_played_tiles = tiles_to_add.keys()

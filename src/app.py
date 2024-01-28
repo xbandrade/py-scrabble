@@ -40,9 +40,10 @@ class GameWindow:
         self.letters_accents = [
             'á', 'é', 'í', 'ó', 'ú', 'ã', 'õ', 'â', 'ê', 'ô',
             'Á', 'É', 'Í', 'Ó', 'Ú', 'Ã', 'Õ', 'Â', 'Ê', 'Ô']
-        self.big_font = pygame.font.SysFont(None, 52)
-        self.font = pygame.font.SysFont(None, 36)
-        self.small_font = pygame.font.SysFont(None, 28)
+        self.get_font = lambda size: pygame.font.SysFont(None, size)
+        self.font = self.get_font(36)
+        self.medium_font = self.get_font(24)
+        self.small_font = self.get_font(18)
         self.font_color = (0, 0, 0)
         self.setup_grid_colors()
         self.setup_display()
@@ -160,11 +161,15 @@ class GameWindow:
                     letter_text = self.font.render(letter, True, font_color)
                     letter_rect = letter_text.get_rect(
                         center=(self.cell_size // 2, self.cell_size // 2))
+                    value_text = self.small_font.render(
+                        str(self.game.values[letter.lower()]), True, (0, 0, 0))
+                    value_rect = letter_text.get_rect(
+                        center=(self.cell_size * .9, self.cell_size * .9))
                     background_surface.blit(letter_text, letter_rect)
+                    background_surface.blit(value_text, value_rect)
                     self.screen.blit(background_surface, (
                         self.cell_size * j, self.cell_size * i))
-                    if cell.blank_letter:
-                        font_color = (120, 120, 120)
+                    font_color = (120, 120, 120)
         if self.current_word:
             start_x, start_y = self.word_start_cell
             start_x *= self.cell_size
@@ -227,7 +232,7 @@ class GameWindow:
         left = (self.grid_size * self.cell_size +
                 (self.info_width - button_width) / 2)
         button_rect = pygame.Rect(left, button_y, button_width, 40)
-        button_text = self.small_font.render(text, True, (255, 255, 255))
+        button_text = self.medium_font.render(text, True, (255, 255, 255))
         button_text_rect = button_text.get_rect(center=button_rect.center)
         if not active:
             pygame.draw.rect(self.screen, (72, 72, 72), button_rect)
@@ -257,7 +262,8 @@ class GameWindow:
         left = (self.grid_size * self.cell_size +
                 (self.info_width - button_width) / 2)
         button_rect = pygame.Rect(left, height - 65, button_width, 40)
-        button_text = self.small_font.render('Desafiar', True, (255, 255, 255))
+        button_text = self.medium_font.render(
+            'Desafiar', True, (255, 255, 255))
         button_text_rect = button_text.get_rect(center=button_rect.center)
         mouse_pos = pygame.mouse.get_pos()
         button_pressed = pygame.mouse.get_pressed()[0]
@@ -290,7 +296,7 @@ class GameWindow:
         if self.game.winner:
             winner_rect = self.get_label_rect(
                 info_rect, 0, 10, 30, (100, 100, 100),
-                f'Player {self.game.winner} venceu!', 1
+                f'Player {self.game.winner} venceu!', 28
             )
             self.screen.blit(*winner_rect)
             return
@@ -306,19 +312,13 @@ class GameWindow:
         for unseen_str in unseen_list:
             unseen_letters_rect = self.get_label_rect(
                 info_rect, 0, pad, 30, (100, 100, 100),
-                unseen_str, 1
+                unseen_str, 28
             )
             self.screen.blit(*unseen_letters_rect)
             pad += 25
 
-    def get_label_rect(self, rect, padx, pady, height, color, text, font=0):
-        match font:
-            case 1:
-                font = self.small_font
-            case 2:
-                font = self.big_font
-            case _:
-                font = self.font
+    def get_label_rect(self, rect, padx, pady, height, color, text, font=36):
+        font = self.get_font(font)
         obj_rect = pygame.Rect(
             rect.left + padx, rect.centery + pady, self.info_width, height)
         obj_text = font.render(text, True, color)
@@ -398,9 +398,15 @@ class GameWindow:
             tile_rect = pygame.Rect(player_x, player2_y, tile_size, tile_size)
             pygame.draw.rect(self.screen, (0, 0, 128), tile_rect)
             show_tile = tile.upper() if self.game.player2.show_tiles else ''
+            value = (str(self.game.values[tile.lower()])
+                     if self.game.player2.show_tiles else '')
             letter_text = self.font.render(show_tile, True, (200, 200, 200))
             letter_rect = letter_text.get_rect(center=tile_rect.center)
+            value_text = self.small_font.render(value, True, (255, 255, 255))
+            value_rect = letter_text.get_rect(center=(
+                tile_rect.x + tile_rect.height, tile_rect.y + tile_rect.width))
             self.screen.blit(letter_text, letter_rect)
+            self.screen.blit(value_text, value_rect)
             player_x += tile_size + tile_spacing
         player_x = self.grid_size * self.cell_size + self.cell_size
         for tile in sorted(player1_tiles):
@@ -409,7 +415,12 @@ class GameWindow:
             show_tile = tile.upper() if self.game.player1.show_tiles else ''
             letter_text = self.font.render(show_tile, True, (200, 200, 200))
             letter_rect = letter_text.get_rect(center=tile_rect.center)
+            value_text = self.small_font.render(
+                str(self.game.values[tile.lower()]), True, (255, 255, 255))
+            value_rect = letter_text.get_rect(
+                center=tile_rect.bottomright)
             self.screen.blit(letter_text, letter_rect)
+            self.screen.blit(value_text, value_rect)
             player_x += tile_size + tile_spacing
 
     def blink_tiles(self) -> None:
@@ -459,6 +470,19 @@ class GameWindow:
                     font_color = (220, 220, 220)
 
     def handle_events(self) -> None:
+        if self.game.current_player.is_bot:
+            print('The bot is making its play')
+            self.game.bot_play()
+            self.game.print_board()
+            self.color_change_counter = 0
+            if self.game.winner:
+                self.game.player1.show_tiles = True
+                self.game.player2.show_tiles = True
+            self.active_button = self.game.current_player.id
+            self.can_challenge = True
+            best1 = self.game.show_best_words()[0]
+            best2 = self.game.show_best_words(2)[0]
+            print(f'P1 best word: {best1}\nP2 best word: {best2}')
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
@@ -533,3 +557,6 @@ class GameWindow:
                     elif play_ok:
                         self.active_button = self.game.current_player.id
                         self.can_challenge = True
+                    best1 = self.game.show_best_words()[0]
+                    best2 = self.game.show_best_words(2)[0]
+                    print(f'P1 best word: {best1}\nP2 best word: {best2}')
