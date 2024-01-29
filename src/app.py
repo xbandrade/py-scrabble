@@ -163,8 +163,8 @@ class GameWindow:
                         center=(self.cell_size // 2, self.cell_size // 2))
                     value_text = self.small_font.render(
                         str(self.game.values[letter.lower()]), True, (0, 0, 0))
-                    value_rect = letter_text.get_rect(
-                        center=(self.cell_size * .9, self.cell_size * .9))
+                    value_rect = value_text.get_rect(
+                        center=(self.cell_size * .8, self.cell_size * .8))
                     background_surface.blit(letter_text, letter_rect)
                     background_surface.blit(value_text, value_rect)
                     self.screen.blit(background_surface, (
@@ -403,8 +403,9 @@ class GameWindow:
             letter_text = self.font.render(show_tile, True, (200, 200, 200))
             letter_rect = letter_text.get_rect(center=tile_rect.center)
             value_text = self.small_font.render(value, True, (255, 255, 255))
-            value_rect = letter_text.get_rect(center=(
-                tile_rect.x + tile_rect.height, tile_rect.y + tile_rect.width))
+            value_rect = value_text.get_rect(center=(
+                tile_rect.x + tile_rect.height * .85,
+                tile_rect.y + tile_rect.width * .85))
             self.screen.blit(letter_text, letter_rect)
             self.screen.blit(value_text, value_rect)
             player_x += tile_size + tile_spacing
@@ -417,8 +418,9 @@ class GameWindow:
             letter_rect = letter_text.get_rect(center=tile_rect.center)
             value_text = self.small_font.render(
                 str(self.game.values[tile.lower()]), True, (255, 255, 255))
-            value_rect = letter_text.get_rect(
-                center=tile_rect.bottomright)
+            value_rect = value_text.get_rect(center=(
+                tile_rect.x + tile_rect.height * .85,
+                tile_rect.y + tile_rect.width * .85))
             self.screen.blit(letter_text, letter_rect)
             self.screen.blit(value_text, value_rect)
             player_x += tile_size + tile_spacing
@@ -480,8 +482,8 @@ class GameWindow:
                 self.game.player2.show_tiles = True
             self.active_button = self.game.current_player.id
             self.can_challenge = True
-            best1 = self.game.show_best_words()[0]
-            best2 = self.game.show_best_words(2)[0]
+            best1 = self.game.get_best_words()[0]
+            best2 = self.game.get_best_words(2)[0]
             print(f'P1 best word: {best1}\nP2 best word: {best2}')
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -557,6 +559,6 @@ class GameWindow:
                     elif play_ok:
                         self.active_button = self.game.current_player.id
                         self.can_challenge = True
-                    best1 = self.game.show_best_words()[0]
-                    best2 = self.game.show_best_words(2)[0]
+                    best1 = self.game.get_best_words()[0]
+                    best2 = self.game.get_best_words(2)[0]
                     print(f'P1 best word: {best1}\nP2 best word: {best2}')

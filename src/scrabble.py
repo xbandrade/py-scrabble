@@ -96,7 +96,7 @@ class Scrabble:
             self.board[a][b].letter_multiplier = 2
 
     def get_word_score(self, word, start_pos, end_pos):
-        word = self.split_word(word)
+        word = self.split(word)
         if (end_pos[0] - start_pos[0] + 1 != self.len(word) and
                 end_pos[1] - start_pos[1] + 1 != self.len(word)):
             raise ValueError('Palavra ou posições inválidas')
@@ -114,6 +114,7 @@ class Scrabble:
         return score * word_multiplier
 
     def is_play_valid(self, letters, start, dir_down):
+        # ...
         return True
 
     def find_valid_words(self, player=1, start=(7, 7),
@@ -148,7 +149,7 @@ class Scrabble:
         dfs(self.trie.root, [], letter_freq)
         return sorted(valid_words, key=lambda x: (-len(x), x))
 
-    def show_best_words(self, player=1, start_tile=(7, 7), down=True):
+    def get_best_words(self, player=1, start_tile=(7, 7), down=True):
         player = self.player1 if player == 1 else self.player2
         valid_words = self.find_valid_words(player.id)[:20]
         start = start_tile
@@ -175,7 +176,7 @@ class Scrabble:
         word = self.clear_word(word)
         return len(word)
 
-    def split_word(self, word) -> list:
+    def split(self, word) -> list:
         if isinstance(word, list):
             word = ''.join(word)
         word = re.sub(r'\[(\w)\]', r'*\1', word)
@@ -190,7 +191,7 @@ class Scrabble:
                 i += 1
         return split_result
 
-    def join_word(self, word) -> str:
+    def join(self, word) -> str:
         return re.sub(r'\*(\w)', r'[\1]', ''.join(word))
 
     def show_tiles(self, player=0):
@@ -217,7 +218,7 @@ class Scrabble:
     def get_player(self, id):
         return self.player1 if str(id) == '1' else self.player2
 
-    def tiles_touching(self, word_path):
+    def are_tiles_touching(self, word_path):
         directions = [(1, 0), (0, 1), (-1, 0), (0, -1)]
         for (a, b) in word_path:
             if self.board[a][b].is_occupied:
@@ -244,18 +245,10 @@ class Scrabble:
         else:
             self.current_player = self.player1
 
-    def challenge(self):
-        player = self.player1 if self.current_player.id == 2 else self.player2
-        if not player.previous_play:
-            print('O oponente não jogou nenhuma palavra')
-            return False
-        path = player.previous_play
-        prev_word = self.get_word_from_board(path[0], path[-1])
+    def find_invalid_words(self, word_path):
         invalid_words = []
-        if not self.trie.search(self.clear_word(prev_word)):
-            invalid_words.append(prev_word)
-        if path[0][0] == path[-1][0]:
-            for i, j in path:
+        if word_path[0][0] == word_path[-1][0]:  # horizontal
+            for i, j in word_path:
                 x = i
                 while x > 0 and self.board[x - 1][j].is_occupied:
                     x -= 1
@@ -269,8 +262,8 @@ class Scrabble:
                 word = self.get_word_from_board(start, end)
                 if not self.trie.search(self.clear_word(word)):
                     invalid_words.append(word)
-        else:
-            for i, j in path:
+        else:  # vertical
+            for i, j in word_path:
                 y = j
                 while y > 0 and self.board[i][y - 1].is_occupied:
                     y -= 1
@@ -284,6 +277,19 @@ class Scrabble:
                 word = self.get_word_from_board(start, end)
                 if not self.trie.search(self.clear_word(word)):
                     invalid_words.append(word)
+        return invalid_words
+
+    def challenge(self):
+        player = self.player1 if self.current_player.id == 2 else self.player2
+        if not player.previous_play:
+            print('O oponente não jogou nenhuma palavra')
+            return False
+        path = player.previous_play
+        prev_word = self.get_word_from_board(path[0], path[-1])
+        invalid_words = []
+        if not self.trie.search(self.clear_word(prev_word)):
+            invalid_words.append(prev_word)
+        invalid_words += self.find_invalid_words(path)
         if invalid_words:
             print('Desafio aceito! Palavras inválidas: '
                   f'{', '.join(invalid_words)}')
@@ -426,7 +432,7 @@ class Scrabble:
     def bot_play(self):
         if not self.current_player.is_bot:
             raise ValueError('Player não é um bot')
-        word, _ = self.show_best_words()[0]
+        word, _ = self.get_best_words()[0]
         if not word:
             print('O bot não encontrou palavras válidas')
             return
@@ -436,43 +442,43 @@ class Scrabble:
                          if down else (7, randint(7 - len(word) + 1, 7)))
             self.play_word(word, start_pos, down)
             return
-        for _ in range(300):
+        for _ in range(500):
             x, y = randint(1, 13), randint(1, 13)
             if self.board[x][y].is_occupied:
                 dy = randint(-len(word) + 1, len(word) - 1)
                 ny = y + dy
+                start, end = (x - 1, ny), (x - 1, ny + len(word))
                 if (ny >= 0 and ny + len(word) <= 14 and
-                    not self.get_word_from_board(
-                        (x - 1, ny), (x - 1, ny + len(word)))):
-                    self.play_word(word, (x - 1, ny), False)
+                        not self.get_word_from_board(start, end)):
+                    self.play_word(word, start, False)
                     return
                 dy = randint(-len(word) + 1, len(word) - 1)
                 ny = y + dy
+                start, end = (x + 1, ny), (x + 1, ny + len(word))
                 if (ny >= 0 and ny + len(word) <= 14 and
-                    not self.get_word_from_board(
-                        (x + 1, ny), (x + 1, ny + len(word)))):
-                    self.play_word(word, (x + 1, ny), False)
+                        not self.get_word_from_board(start, end)):
+                    self.play_word(word, start, False)
                     return
                 dx = randint(-len(word) + 1, len(word) - 1)
                 nx = x + dx
+                start, end = (nx, y - 1), (nx + len(word), y - 1)
                 if (nx >= 0 and nx + len(word) <= 14 and
-                    not self.get_word_from_board(
-                        (nx, y - 1), (nx + len(word), y - 1))):
-                    self.play_word(word, (nx, y - 1), True)
+                        not self.get_word_from_board(start, end)):
+                    self.play_word(word, start, True)
                     return
                 dx = randint(-len(word) + 1, len(word) - 1)
                 nx = x + dx
+                start, end = (nx, y + 1), (nx + len(word), y + 1)
                 if (nx >= 0 and nx + len(word) <= 14 and
-                    not self.get_word_from_board(
-                        (nx, y + 1), (nx + len(word), y + 1))):
-                    self.play_word(word, (nx, y + 1), True)
+                        not self.get_word_from_board(start, end)):
+                    self.play_word(word, start, True)
                     return
         print('O bot não encontrou jogadas válidas')
 
     def play_word(self, word, start_pos, down=True) -> bool:
         player = self.current_player
         start_pos, word = self.get_full_word(start_pos, word, down)
-        word = self.split_word(word)
+        word = self.split(word)
         word_path, end_pos = self.get_word_path(start_pos, down, word)
         if end_pos[0] > 14 or end_pos[1] > 14:
             print('Posição inválida')
@@ -481,7 +487,7 @@ class Scrabble:
             if self.center not in word_path:
                 print('A primeira palavra deve passar pelo centro (7, 7)')
                 return False
-        elif not self.tiles_touching(word_path):
+        elif not self.are_tiles_touching(word_path):
             print('Sua palavra deve tocar em uma palavra já jogada')
             return False
         tiles_to_add = {}
@@ -514,14 +520,14 @@ class Scrabble:
         except ValueError:
             print('Jogada inválida!')
             return False
-        print(f'Jogador {player} jogou > {self.join_word(word)} < por '
+        print(f'Jogador {player} jogou > {self.join(word)} < por '
               f'{play_score} pontos')
         player.draw_tiles(self.bag)
         player.previous_play = word_path
         self.switch_current_player()
         self.previous_play_info = {
             'player': player.id,
-            'word': self.join_word(word),
+            'word': self.join(word),
             'play_score': play_score
         }
         player.show_tiles = False

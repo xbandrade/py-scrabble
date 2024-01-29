@@ -9,8 +9,8 @@ def main() -> None:
     game = Scrabble(trie, vs_bot=True)
     game.print_board()
     game.show_scores()
-    best1 = game.show_best_words()[0]
-    best2 = game.show_best_words(2)[0]
+    best1 = game.get_best_words()[0]
+    best2 = game.get_best_words(2)[0]
     print(f'P1 best word: {best1}\nP2 best word: {best2}')
     game.show_tiles()
     running = True
