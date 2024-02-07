@@ -18,6 +18,9 @@ class Player:
     def __str__(self) -> str:
         return str(self.id)
 
+    def __int__(self) -> int:
+        return self.id
+
     def __lt__(self, other):
         return self.score < other.score
 

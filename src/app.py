@@ -1,29 +1,19 @@
+from random import randint
+
 import pygame
 
 
 class GameWindow:
-    def __init__(self, grid_size, cell_size, game):
-        pygame.init()
+    def __init__(self, grid_size, cell_size, game=None):
         self.game = game
         self.grid_size = grid_size
         self.cell_size = cell_size
         self.info_width = 400
         self.border_thickness = 3
         self.screen = None
-        self.grid_matrix = [[None for _ in range(
-            grid_size)] for _ in range(grid_size)]
-        self.letters_matrix = {}
-        self.star_image = pygame.image.load('img/star.png')
-        self.star_image = pygame.transform.scale(
-            self.star_image, (self.cell_size, self.cell_size))
-        self.arrow_image = pygame.image.load('img/arrow.png')
-        self.arrow_image = pygame.transform.scale(
-            self.arrow_image, (self.cell_size, self.cell_size))
-        self.arrow_image.set_colorkey((255, 255, 255))
-        self.arrow_img_right = pygame.transform.rotate(self.arrow_image, 180)
-        self.arrow_img_down = pygame.transform.rotate(self.arrow_image, 90)
         self.word_start_cell = None
-        self.curr_cell = None
+        self.current_cell = None
+        self.letters_matrix = {}
         self.current_word = []
         self.arrow_down = False
         self.is_blank = False
@@ -35,28 +25,153 @@ class GameWindow:
         self.button1_clicking = False
         self.button2_clicking = False
         self.challenge_clicking = False
+        self.go_to_menu = True
         self.can_challenge = False
         self.active_button = 1
-        self.letters_accents = [
-            'á', 'é', 'í', 'ó', 'ú', 'ã', 'õ', 'â', 'ê', 'ô',
-            'Á', 'É', 'Í', 'Ó', 'Ú', 'Ã', 'Õ', 'Â', 'Ê', 'Ô']
         self.get_font = lambda size: pygame.font.SysFont(None, size)
         self.font = self.get_font(36)
         self.medium_font = self.get_font(24)
         self.small_font = self.get_font(18)
         self.font_color = (0, 0, 0)
-        self.setup_grid_colors()
-        self.setup_display()
+        self.fill_color = (120, 120, 120)
+        self.title_color = (200, 200, 200)
+        self.bg_counter = 0
+        self.setup()
 
-    def setup_display(self) -> None:
+    def setup(self) -> None:
         total_width = (self.grid_size * self.cell_size +
                        self.info_width + self.border_thickness)
         self.screen = pygame.display.set_mode(
             (total_width, (self.grid_size * self.cell_size +
                            self.border_thickness // 2)))
         pygame.display.set_caption('Scrabble')
+        self.grid_matrix = [[None for _ in range(
+            self.grid_size)] for _ in range(self.grid_size)]
+        self.star_image = pygame.image.load('img/star.png')
+        self.star_image = pygame.transform.scale(
+            self.star_image, (self.cell_size, self.cell_size))
+        self.arrow_image = pygame.image.load('img/arrow.png')
+        self.arrow_image = pygame.transform.scale(
+            self.arrow_image, (self.cell_size, self.cell_size))
+        self.arrow_image.set_colorkey((255, 255, 255))
+        self.arrow_img_right = pygame.transform.rotate(self.arrow_image, 180)
+        self.arrow_img_down = pygame.transform.rotate(self.arrow_image, 90)
+        self.letters_accents = [
+            'á', 'é', 'í', 'ó', 'ú', 'ã', 'õ', 'â', 'ê', 'ô',
+            'Á', 'É', 'Í', 'Ó', 'Ú', 'Ã', 'Õ', 'Â', 'Ê', 'Ô']
 
-    def setup_grid_colors(self) -> None:
+    def run_main_menu(self) -> bool | None:
+        opponent = None
+        vs_bot = None
+        button_pressed = False
+        self.screen.fill(self.fill_color)
+        while not opponent:
+            bot_button, player_button = self.draw_start_screen_buttons()
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    return None
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    mouse_pos = pygame.mouse.get_pos()
+                    if (bot_button.collidepoint(mouse_pos) or
+                            player_button.collidepoint(mouse_pos)):
+                        button_pressed = True
+                if event.type == pygame.MOUSEBUTTONUP:
+                    mouse_pos = pygame.mouse.get_pos()
+                    if (button_pressed and (
+                            bot_button.collidepoint(mouse_pos) or
+                            player_button.collidepoint(mouse_pos))):
+                        vs_bot = bot_button.collidepoint(mouse_pos)
+                        opponent = True
+                    button_pressed = False
+            pygame.display.flip()
+        return vs_bot
+
+    def draw_start_screen_buttons(self):
+        big_font = self.get_font(84)
+        screen_width, _ = self.screen.get_size()
+        self.bg_counter += 1
+        if self.bg_counter == 180:
+            self.bg_counter = 0
+            self.fill_color = (
+                max(0, min(255, self.fill_color[0] + randint(-1, 1))),
+                max(0, min(255, self.fill_color[1] + randint(-1, 1))),
+                max(0, min(255, self.fill_color[2] + randint(-1, 1))),
+            )
+            self.title_color = (
+                max(120, min(255, self.title_color[0] + randint(-5, 5))),
+                max(120, min(255, self.title_color[1] + randint(-5, 5))),
+                max(120, min(255, self.title_color[2] + randint(-5, 5))),
+            )
+        self.screen.fill(self.fill_color)
+        title = big_font.render("SCRABBLE", True, self.title_color)
+        text = self.font.render("Selecione o Oponente:", True, (200, 200, 200))
+        vs_bot_text = self.font.render("Player vs Bot", True, (255, 255, 255))
+        vs_player_text = self.font.render(
+            "Player vs Player", True, (255, 255, 255))
+        title_y = 100
+        text_y = 180
+        button_y = 220
+        button_width = 200
+        button_height = 50
+        button_margin = 20
+        center_x = screen_width // 2
+        title_rect = title.get_rect(center=(center_x, title_y))
+        text_rect = text.get_rect(center=(center_x, text_y))
+        bot_button = pygame.Rect(
+            center_x - button_width // 2,
+            button_y, button_width, button_height)
+        player_button = pygame.Rect(
+            center_x - button_width // 2,
+            button_y + button_height + button_margin,
+            button_width, button_height)
+        mouse_pos = pygame.mouse.get_pos()
+        mouse_clicked = pygame.mouse.get_pressed()[0]
+        button_color = (0, 128, 255)
+        button_color_hover = (0, 200, 255)
+        button_color_click = (0, 255, 128)
+        if bot_button.collidepoint(mouse_pos):
+            bot_button_color = button_color_hover
+            if mouse_clicked:
+                bot_button_color = button_color_click
+        else:
+            bot_button_color = button_color
+        if player_button.collidepoint(mouse_pos):
+            player_button_color = button_color_hover
+            if mouse_clicked:
+                player_button_color = button_color_click
+        else:
+            player_button_color = button_color
+        pygame.draw.rect(self.screen, bot_button_color, bot_button)
+        pygame.draw.rect(self.screen, player_button_color, player_button)
+        bot_text_rect = vs_bot_text.get_rect(center=bot_button.center)
+        player_text_rect = vs_player_text.get_rect(center=player_button.center)
+        self.screen.blit(title, title_rect)
+        self.screen.blit(text, text_rect)
+        self.screen.blit(vs_bot_text, bot_text_rect)
+        self.screen.blit(vs_player_text, player_text_rect)
+        return bot_button, player_button
+
+    def show_start_menu(self):
+        bot_button, player_button = self.draw_start_screen_buttons()
+        opponent = None
+        while not opponent:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    opponent = True
+                    pygame.quit()
+                    return
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    mouse_pos = pygame.mouse.get_pos()
+                    if bot_button.collidepoint(mouse_pos):
+                        vs_bot = True
+                        opponent = True
+                    elif player_button.collidepoint(mouse_pos):
+                        vs_bot = False
+                        opponent = True
+        return vs_bot
+
+    def draw_grid_colors(self) -> None:
         for i in range(len(self.game.board)):
             for j in range(len(self.game.board[0])):
                 wm = self.game.board[i][j].word_multiplier
@@ -110,8 +225,8 @@ class GameWindow:
             self.draw_arrow()
 
     def draw_arrow(self) -> None:
-        if self.curr_cell:
-            x, y = self.curr_cell
+        if self.current_cell:
+            x, y = self.current_cell
             arrow_image = (self.arrow_img_down if self.arrow_down
                            else self.arrow_img_right)
             self.screen.blit(arrow_image, (
@@ -119,7 +234,7 @@ class GameWindow:
 
     def draw_board_tiles(self) -> None:
         self.color_change_counter += 1
-        if self.color_change_counter >= (20 if not self.play_ok else 10):
+        if self.color_change_counter >= 7:
             self.color_change_counter = 0
             self.tile_rgb += self.color_sum + abs(self.play_ok) * 10
             self.tile_rgb = min(255, self.tile_rgb)
@@ -205,23 +320,22 @@ class GameWindow:
                 if is_blank:
                     is_blank = False
                     font_color = (220, 220, 220)
-        if self.blink_counter >= 12:
+        if self.blink_counter >= 8:
             self.blink_counter = 0
             self.color_change_counter = 0
             self.tile_rgb = 100
             self.play_ok = 0
             self.current_word = []
-            self.word_start_cell = self.curr_cell = None
+            self.word_start_cell = self.current_cell = None
             return
 
     def switch_button_click(self, click) -> None:
-        if self.game.current_player == 1:
-            self.button1_clicking = click
-        else:
-            self.button2_clicking = click
+        player = self.game.current_player.id
+        self.button1_clicking = click if player == 1 else self.button1_clicking
+        self.button2_clicking = click if player == 2 else self.button2_clicking
 
     def is_show_tiles_button_pressed(self) -> bool:
-        if self.game.current_player == 1:
+        if int(self.game.current_player) == 1:
             return self.button1_clicking
         return self.button2_clicking
 
@@ -257,11 +371,32 @@ class GameWindow:
             pygame.draw.rect(self.screen, (0, 0, 0), button_rect)
         self.screen.blit(button_text, button_text_rect)
 
+    def draw_menu_button(self) -> None:
+        button_width = 100
+        left = (self.grid_size * self.cell_size +
+                (self.info_width - button_width) / 2)
+        button_rect = pygame.Rect(left, 10, button_width, 30)
+        button_text = self.medium_font.render(
+            'Menu', True, (255, 255, 255))
+        button_text_rect = button_text.get_rect(center=button_rect.center)
+        mouse_pos = pygame.mouse.get_pos()
+        button_pressed = pygame.mouse.get_pressed()[0]
+        button_hovered = button_rect.collidepoint(mouse_pos)
+        if button_pressed and button_hovered:
+            self.on_click_menu()
+        if self.challenge_clicking:
+            pygame.draw.rect(self.screen, (100, 200, 200), button_rect)
+        elif button_hovered:
+            pygame.draw.rect(self.screen, (100, 158, 158), button_rect)
+        else:
+            pygame.draw.rect(self.screen, (100, 100, 100), button_rect)
+        self.screen.blit(button_text, button_text_rect)
+
     def draw_challenge_button(self, height) -> None:
         button_width = 100
         left = (self.grid_size * self.cell_size +
                 (self.info_width - button_width) / 2)
-        button_rect = pygame.Rect(left, height - 65, button_width, 40)
+        button_rect = pygame.Rect(left, height - 45, button_width, 40)
         button_text = self.medium_font.render(
             'Desafiar', True, (255, 255, 255))
         button_text_rect = button_text.get_rect(center=button_rect.center)
@@ -288,6 +423,9 @@ class GameWindow:
     def on_click_show_tiles(self) -> None:
         self.game.current_player.show_tiles = True
 
+    def on_click_menu(self) -> None:
+        self.go_to_menu = True
+
     def on_click_challenge(self) -> None:
         self.game.challenge()
         self.can_challenge = False
@@ -311,7 +449,7 @@ class GameWindow:
         pad = 10
         for unseen_str in unseen_list:
             unseen_letters_rect = self.get_label_rect(
-                info_rect, 0, pad, 30, (100, 100, 100),
+                info_rect, 0, pad, 70, (100, 100, 100),
                 unseen_str, 28
             )
             self.screen.blit(*unseen_letters_rect)
@@ -353,15 +491,16 @@ class GameWindow:
         else:
             previous_play_text = 'Nenhuma palavra foi jogada'
         previous_play_text_rect = self.get_label_rect(
-            info_rect, 0, -105, 30, (0, 100, 0), previous_play_text)
+            info_rect, 0, -105, 50, (0, 100, 0), previous_play_text)
         unseen_label_rect = self.get_label_rect(
-            info_rect, 0, -15, 30, (50, 50, 50), 'Letras não jogadas:')
+            info_rect, 0, -15, 70, (50, 50, 50), 'Letras não jogadas:')
         self.screen.blit(*current_player_text_rect)
         self.screen.blit(*previous_play_text_rect)
         if not self.game.winner:
             self.screen.blit(*unseen_label_rect)
             if self.can_challenge:
                 self.draw_challenge_button(info_rect.centery)
+        self.draw_menu_button()
         self.draw_unseen_tiles(info_rect)
         self.draw_player_info()
 
@@ -371,9 +510,8 @@ class GameWindow:
         tile_size = 40
         tile_spacing = 5
         player_x = self.grid_size * self.cell_size + self.cell_size
-        player1_y = (self.screen.get_height() -
-                     (tile_size + tile_spacing) - 10)
-        player2_y = 10
+        player1_y = self.screen.get_height() - (tile_size + tile_spacing) - 10
+        player2_y = 50
         p1_rect = pygame.Rect(self.grid_size * self.cell_size,
                               player1_y - tile_size - 10, self.info_width, 30)
         p1_text = self.font.render(
@@ -414,10 +552,11 @@ class GameWindow:
             tile_rect = pygame.Rect(player_x, player1_y, tile_size, tile_size)
             pygame.draw.rect(self.screen, (128, 0, 0), tile_rect)
             show_tile = tile.upper() if self.game.player1.show_tiles else ''
+            value = (str(self.game.values[tile.lower()])
+                     if self.game.player1.show_tiles else '')
             letter_text = self.font.render(show_tile, True, (200, 200, 200))
             letter_rect = letter_text.get_rect(center=tile_rect.center)
-            value_text = self.small_font.render(
-                str(self.game.values[tile.lower()]), True, (255, 255, 255))
+            value_text = self.small_font.render(value, True, (255, 255, 255))
             value_rect = value_text.get_rect(center=(
                 tile_rect.x + tile_rect.height * .85,
                 tile_rect.y + tile_rect.width * .85))
@@ -425,55 +564,9 @@ class GameWindow:
             self.screen.blit(value_text, value_rect)
             player_x += tile_size + tile_spacing
 
-    def blink_tiles(self) -> None:
-        font_color = (120, 120, 120)
-        self.color_change_counter += 1
-        if self.color_change_counter >= 35:
-            self.color_change_counter = 0
-            self.tile_rgb += self.color_sum
-            if self.tile_rgb <= 50 or self.tile_rgb >= 220:
-                self.tile_rgb = 100
-                self.play_ok = 0
-                return
-        if self.current_word:
-            start_x, start_y = self.word_start_cell
-            start_x *= self.cell_size
-            start_y *= self.cell_size
-            step_x, step_y = (0, self.cell_size) if self.arrow_down else (
-                self.cell_size, 0)
-            font_color = (220, 220, 220)
-            is_blank = False
-            for letter in ''.join(self.current_word).upper():
-                if letter == '*':
-                    is_blank = True
-                    continue
-                offset = 3
-                border_width = 2
-                background_surface = pygame.Surface(
-                    (self.cell_size - offset, self.cell_size - offset))
-                background_surface.fill((self.tile_rgb, 22, 22))
-                pygame.draw.rect(
-                    background_surface, (20, 20, 20),
-                    (0, 0, background_surface.get_width(),
-                     background_surface.get_height()),
-                    border_width
-                )
-                if is_blank:
-                    font_color = (255, 112, 112)
-                letter_text = self.font.render(letter, True, font_color)
-                letter_rect = letter_text.get_rect(
-                    center=(self.cell_size // 2, self.cell_size // 2))
-                background_surface.blit(letter_text, letter_rect)
-                self.screen.blit(background_surface, (start_x, start_y))
-                start_x += step_x
-                start_y += step_y
-                if is_blank:
-                    is_blank = False
-                    font_color = (220, 220, 220)
-
     def handle_events(self) -> None:
         if self.game.current_player.is_bot:
-            print('The bot is making its play')
+            print('O bot está fazendo uma jogada')
             self.game.bot_play()
             self.game.print_board()
             self.color_change_counter = 0
@@ -484,7 +577,7 @@ class GameWindow:
             self.can_challenge = True
             best1 = self.game.get_best_words()[0]
             best2 = self.game.get_best_words(2)[0]
-            print(f'P1 best word: {best1}\nP2 best word: {best2}')
+            print(f'P1 melhor palavra: {best1}\nP2 melhor palavra: {best2}')
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
@@ -496,16 +589,16 @@ class GameWindow:
                         0 <= y < self.grid_size * self.cell_size):
                     grid_x = x // self.cell_size
                     grid_y = y // self.cell_size
-                    if (grid_x, grid_y) == self.curr_cell:
+                    if (grid_x, grid_y) == self.current_cell:
                         self.arrow_down = not self.arrow_down
                     else:
                         self.arrow_down = False
                         self.word_start_cell = (grid_x, grid_y)
-                        self.curr_cell = self.word_start_cell
+                        self.current_cell = self.word_start_cell
                 else:
-                    self.word_start_cell = self.curr_cell = None
+                    self.word_start_cell = self.current_cell = None
             if event.type == pygame.KEYDOWN and self.word_start_cell:
-                if (self.curr_cell and
+                if (self.current_cell and
                     (event.unicode.isalpha() or
                      event.unicode in self.letters_accents)):
                     if self.is_blank:
@@ -513,17 +606,17 @@ class GameWindow:
                         self.is_blank = False
                     else:
                         self.current_word.append(event.unicode.lower())
-                    if ((self.curr_cell[0] >= self.grid_size - 1 and
+                    if ((self.current_cell[0] >= self.grid_size - 1 and
                          not self.arrow_down) or
-                        (self.curr_cell[1] >= self.grid_size and
+                        (self.current_cell[1] >= self.grid_size and
                             self.arrow_down)):
-                        self.curr_cell = None
+                        self.current_cell = None
                     elif self.arrow_down:
-                        self.curr_cell = (
-                            self.curr_cell[0], self.curr_cell[1] + 1)
+                        self.current_cell = (
+                            self.current_cell[0], self.current_cell[1] + 1)
                     else:
-                        self.curr_cell = (
-                            self.curr_cell[0] + 1, self.curr_cell[1])
+                        self.current_cell = (
+                            self.current_cell[0] + 1, self.current_cell[1])
                 elif event.key == pygame.K_SPACE:
                     self.is_blank = True
                 elif event.key == pygame.K_BACKSPACE:
@@ -531,20 +624,20 @@ class GameWindow:
                         continue
                     self.current_word.pop()
                     if self.arrow_down:
-                        if not self.curr_cell:
-                            self.curr_cell = (self.word_start_cell[0], 14)
+                        if not self.current_cell:
+                            self.current_cell = (self.word_start_cell[0], 14)
                         else:
-                            self.curr_cell = (
-                                self.curr_cell[0], self.curr_cell[1] - 1)
+                            self.current_cell = (
+                                self.current_cell[0], self.current_cell[1] - 1)
                     else:
-                        if not self.curr_cell:
-                            self.curr_cell = (14, self.word_start_cell[1])
+                        if not self.current_cell:
+                            self.current_cell = (14, self.word_start_cell[1])
                         else:
-                            self.curr_cell = (
-                                self.curr_cell[0] - 1, self.curr_cell[1])
+                            self.current_cell = (
+                                self.current_cell[0] - 1, self.current_cell[1])
                     self.is_blank = False
                 elif event.key == pygame.K_ESCAPE:
-                    self.word_start_cell = self.curr_cell = None
+                    self.word_start_cell = self.current_cell = None
                     self.current_word = []
                 elif event.key == pygame.K_RETURN and self.current_word:
                     word = ''.join(self.current_word)
@@ -561,4 +654,5 @@ class GameWindow:
                         self.can_challenge = True
                     best1 = self.game.get_best_words()[0]
                     best2 = self.game.get_best_words(2)[0]
-                    print(f'P1 best word: {best1}\nP2 best word: {best2}')
+                    print(f'P1 melhor palavra: {best1}\n'
+                          f'P2 melhor palavra: {best2}')

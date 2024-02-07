@@ -4,18 +4,21 @@ from src import GameWindow, Scrabble, Trie
 
 
 def main() -> None:
+    pygame.init()
     trie = Trie()
     trie.populate_from_file('words_ptbr.txt')
-    game = Scrabble(trie, vs_bot=True)
-    game.print_board()
-    game.show_scores()
-    best1 = game.get_best_words()[0]
-    best2 = game.get_best_words(2)[0]
-    print(f'P1 best word: {best1}\nP2 best word: {best2}')
-    game.show_tiles()
+    app = GameWindow(15, 48)
     running = True
-    app = GameWindow(15, 48, game)
     while running:
+        if app.go_to_menu:
+            app.go_to_menu = False
+            vs_bot = app.run_main_menu()
+            if vs_bot is None:
+                running = False
+                break
+            game = Scrabble(trie, vs_bot=vs_bot)
+            app.game = game
+            app.draw_grid_colors()
         app.draw_grid()
         app.handle_events()
         app.draw_info_section()

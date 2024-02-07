@@ -163,7 +163,7 @@ class Scrabble:
                     word, start, (start[0] + self.len(word) - 1, start[1]))))
         best_words = sorted(best_words, key=lambda x: (-x[1], x[0]))[:10]
         player.best_words = []
-        return best_words or ['']
+        return best_words or [('', 0)]
 
     def clear_word(self, word):
         if isinstance(word, list):
