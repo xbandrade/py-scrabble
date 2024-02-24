@@ -1,5 +1,3 @@
-from random import randint
-
 import pygame
 
 
@@ -33,9 +31,8 @@ class GameWindow:
         self.medium_font = self.get_font(24)
         self.small_font = self.get_font(18)
         self.font_color = (0, 0, 0)
-        self.fill_color = (120, 120, 120)
+        self.fill_color = (94, 63, 51)
         self.title_color = (200, 200, 200)
-        self.bg_counter = 0
         self.setup()
 
     def setup(self) -> None:
@@ -47,10 +44,10 @@ class GameWindow:
         pygame.display.set_caption('Scrabble')
         self.grid_matrix = [[None for _ in range(
             self.grid_size)] for _ in range(self.grid_size)]
-        self.star_image = pygame.image.load('img/star.png')
+        self.star_image = pygame.image.load('assets/images/star.png')
         self.star_image = pygame.transform.scale(
             self.star_image, (self.cell_size, self.cell_size))
-        self.arrow_image = pygame.image.load('img/arrow.png')
+        self.arrow_image = pygame.image.load('assets/images/arrow.png')
         self.arrow_image = pygame.transform.scale(
             self.arrow_image, (self.cell_size, self.cell_size))
         self.arrow_image.set_colorkey((255, 255, 255))
@@ -60,12 +57,68 @@ class GameWindow:
             'á', 'é', 'í', 'ó', 'ú', 'ã', 'õ', 'â', 'ê', 'ô',
             'Á', 'É', 'Í', 'Ó', 'Ú', 'Ã', 'Õ', 'Â', 'Ê', 'Ô']
 
+    def draw_start_screen_buttons(self):
+        big_font = pygame.font.Font(
+            'assets/fonts/RobotoSlab-ExtraBold.ttf', 84)
+        button_font = pygame.font.Font(
+            'assets/fonts/RobotoSlab-ExtraBold.ttf', 26)
+        screen_width, _ = self.screen.get_size()
+        title = big_font.render('SCRABBLE', True, self.title_color)
+        title_img = pygame.image.load('assets/images/title.png')
+        button_img = pygame.image.load('assets/images/gui.png')
+        title_y = 100
+        button_y = 170
+        button_margin = 20
+        button_width, button_height = button_img.get_rect().size
+        center_x = screen_width // 2
+        title_rect = title.get_rect(center=(center_x, title_y))
+        bot_button = pygame.Rect(
+            center_x - button_width // 2,
+            button_y, button_width, button_height)
+        player_button = pygame.Rect(
+            center_x - button_width // 2,
+            button_y + button_height + button_margin,
+            button_width, button_height)
+        mouse_pos = pygame.mouse.get_pos()
+        mouse_clicked = pygame.mouse.get_pressed()[0]
+        button_color = (80, 80, 80)
+        button_color_hover = (130, 90, 90)
+        button_color_click = (150, 150, 150)
+        current_color = button_color
+        self.screen.blit(button_img, bot_button)
+        self.screen.blit(button_img, player_button)
+        if bot_button.collidepoint(mouse_pos):
+            current_color = button_color_hover
+            if mouse_clicked:
+                current_color = button_color_click
+        vs_bot_text = button_font.render(
+            'Player vs Bot', True, current_color)
+        current_color = button_color
+        if player_button.collidepoint(mouse_pos):
+            current_color = button_color_hover
+            if mouse_clicked:
+                current_color = button_color_click
+        vs_player_text = button_font.render(
+            'Player vs Player', True, current_color)
+        bot_text_rect = vs_bot_text.get_rect(center=bot_button.center)
+        player_text_rect = vs_player_text.get_rect(center=player_button.center)
+        self.screen.blit(title_img, title_rect)
+        self.screen.blit(vs_bot_text, bot_text_rect)
+        self.screen.blit(vs_player_text, player_text_rect)
+        return bot_button, player_button
+
     def run_main_menu(self) -> bool | None:
         opponent = None
         vs_bot = None
         button_pressed = False
+        width, _ = self.screen.get_size()
+        bg = pygame.image.load('assets/images/bg2.png')
+        scaled_bg = pygame.transform.smoothscale(
+            bg, (width, int(bg.get_height() * width / bg.get_width())))
         self.screen.fill(self.fill_color)
+        scaled_bg.set_alpha(10)
         while not opponent:
+            self.screen.blit(scaled_bg, (0, 0))
             bot_button, player_button = self.draw_start_screen_buttons()
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -86,71 +139,6 @@ class GameWindow:
                     button_pressed = False
             pygame.display.flip()
         return vs_bot
-
-    def draw_start_screen_buttons(self):
-        big_font = self.get_font(84)
-        screen_width, _ = self.screen.get_size()
-        self.bg_counter += 1
-        if self.bg_counter == 180:
-            self.bg_counter = 0
-            self.fill_color = (
-                max(0, min(255, self.fill_color[0] + randint(-1, 1))),
-                max(0, min(255, self.fill_color[1] + randint(-1, 1))),
-                max(0, min(255, self.fill_color[2] + randint(-1, 1))),
-            )
-            self.title_color = (
-                max(120, min(255, self.title_color[0] + randint(-5, 5))),
-                max(120, min(255, self.title_color[1] + randint(-5, 5))),
-                max(120, min(255, self.title_color[2] + randint(-5, 5))),
-            )
-        self.screen.fill(self.fill_color)
-        title = big_font.render("SCRABBLE", True, self.title_color)
-        text = self.font.render("Selecione o Oponente:", True, (200, 200, 200))
-        vs_bot_text = self.font.render("Player vs Bot", True, (255, 255, 255))
-        vs_player_text = self.font.render(
-            "Player vs Player", True, (255, 255, 255))
-        title_y = 100
-        text_y = 180
-        button_y = 220
-        button_width = 200
-        button_height = 50
-        button_margin = 20
-        center_x = screen_width // 2
-        title_rect = title.get_rect(center=(center_x, title_y))
-        text_rect = text.get_rect(center=(center_x, text_y))
-        bot_button = pygame.Rect(
-            center_x - button_width // 2,
-            button_y, button_width, button_height)
-        player_button = pygame.Rect(
-            center_x - button_width // 2,
-            button_y + button_height + button_margin,
-            button_width, button_height)
-        mouse_pos = pygame.mouse.get_pos()
-        mouse_clicked = pygame.mouse.get_pressed()[0]
-        button_color = (0, 128, 255)
-        button_color_hover = (0, 200, 255)
-        button_color_click = (0, 255, 128)
-        if bot_button.collidepoint(mouse_pos):
-            bot_button_color = button_color_hover
-            if mouse_clicked:
-                bot_button_color = button_color_click
-        else:
-            bot_button_color = button_color
-        if player_button.collidepoint(mouse_pos):
-            player_button_color = button_color_hover
-            if mouse_clicked:
-                player_button_color = button_color_click
-        else:
-            player_button_color = button_color
-        pygame.draw.rect(self.screen, bot_button_color, bot_button)
-        pygame.draw.rect(self.screen, player_button_color, player_button)
-        bot_text_rect = vs_bot_text.get_rect(center=bot_button.center)
-        player_text_rect = vs_player_text.get_rect(center=player_button.center)
-        self.screen.blit(title, title_rect)
-        self.screen.blit(text, text_rect)
-        self.screen.blit(vs_bot_text, bot_text_rect)
-        self.screen.blit(vs_player_text, player_text_rect)
-        return bot_button, player_button
 
     def show_start_menu(self):
         bot_button, player_button = self.draw_start_screen_buttons()

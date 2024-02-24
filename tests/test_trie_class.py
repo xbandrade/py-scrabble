@@ -1,6 +1,6 @@
 import pytest
 
-from trie import Trie, TrieNode
+from src import Trie, TrieNode
 
 
 class TestTrieClass:
@@ -11,20 +11,20 @@ class TestTrieClass:
 
     def test_insert_word_into_trie(self):
         trie = Trie()
-        trie.insert("teste")
+        trie.insert('teste')
         assert len(trie.root.children) == 1
-        assert (trie.root.children["t"].children["e"].children["s"].
-                children["t"].children["e"].is_word)
+        assert (trie.root.children['t'].children['e'].children['s'].
+                children['t'].children['e'].is_word)
 
     def test_insert_multiple_words_into_trie(self):
         trie = Trie()
-        trie.insert("teste")
-        trie.insert("adeus")
+        trie.insert('teste')
+        trie.insert('adeus')
         assert len(trie.root.children) == 2
-        assert (trie.root.children["t"].children["e"].children["s"].
-                children["t"].children["e"].is_word)
-        assert (trie.root.children["a"].children["d"].children["e"].
-                children["u"].children["s"].is_word)
+        assert (trie.root.children['t'].children['e'].children['s'].
+                children['t'].children['e'].is_word)
+        assert (trie.root.children['a'].children['d'].children['e'].
+                children['u'].children['s'].is_word)
 
     @pytest.mark.slow
     def test_populate_trie_from_file(self):
