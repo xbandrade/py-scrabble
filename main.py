@@ -23,7 +23,6 @@ def main() -> None:
         app.handle_events()
         app.draw_info_section()
         app.draw_board_tiles()
-        app.draw_arrow()
         pygame.display.flip()
     pygame.quit()
 
