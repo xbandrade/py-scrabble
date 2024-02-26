@@ -312,6 +312,30 @@ class Scrabble:
         }
         return False
 
+    def exchange_tiles(self, tiles) -> bool:
+        player = self.current_player
+        if (len(tiles) > len(self.bag) or
+                not all(t in player.tiles for t in tiles)):
+            print('Troca inválida\n')
+            self.previous_play_info = {
+                'exchange': True,
+                'exchange_ok': 'inválida',
+            }
+            return False
+        tiles_on_hand = tiles[:]
+        player.remove_tiles(tiles)
+        player.draw_tiles(self.bag)
+        for tile in tiles_on_hand:
+            self.bag.insert(randint(0, len(self.bag)), tile)
+        print(f'Player {player} trocou de peças com sucesso\n')
+        self.previous_play_info = {
+            'exchange': True,
+            'exchange_ok': 'válida',
+        }
+        player.show_tiles = False
+        self.switch_current_player()
+        return True
+
     def get_word_from_board(self, start, end):
         word = []
         if start[0] == end[0]:
@@ -434,7 +458,9 @@ class Scrabble:
             raise ValueError('Player não é um bot')
         word, _ = self.get_best_words()[0]
         if not word:
-            print('O bot não encontrou palavras válidas')
+            print('O bot não encontrou palavras válidas.')
+            print('Realizando troca de peças\n')
+            self.exchange_tiles(self.current_player.tiles)
             return
         if self.tiles_on_board == 0:
             down = random() < 0.5
@@ -474,6 +500,8 @@ class Scrabble:
                     self.play_word(word, start, True)
                     return
         print('O bot não encontrou jogadas válidas')
+        print('Realizando troca de peças\n')
+        self.exchange_tiles(self.current_player.tiles)
 
     def play_word(self, word, start_pos, down=True) -> bool:
         player = self.current_player

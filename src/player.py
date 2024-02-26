@@ -1,6 +1,5 @@
 import re
 from collections import Counter
-from random import randint
 
 
 class Player:
@@ -46,15 +45,3 @@ class Player:
             if '*' in tile:
                 tile = '*'
             self.tiles.remove(tile)
-
-    def exchange_tiles(self, tiles, bag) -> bool:
-        if len(tiles) > len(bag) or not all(t in self.tiles for t in tiles):
-            print('Troca inválida\n')
-            return False
-        tiles_on_hand = tiles[:]
-        self.remove_tiles(tiles)
-        self.draw_tiles(bag)
-        for tile in tiles_on_hand:
-            bag.insert(randint(0, len(bag)), tile)
-        print(f'Player {self.id} trocou de peças com sucesso\n')
-        return True

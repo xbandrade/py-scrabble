@@ -25,6 +25,7 @@ class GameWindow:
         self.go_to_menu = True
         self.can_challenge = False
         self.active_button = 1
+        self.game_button_rects = []
         self.get_font = lambda size: pygame.font.Font(
             'assets/fonts/RobotoSlab-ExtraBold.ttf', size)
         self.font = self.get_font(26)
@@ -35,8 +36,9 @@ class GameWindow:
         self.setup()
 
     def setup(self) -> None:
-        total_width = (self.grid_size * self.cell_size +
-                       self.info_width + self.border_thickness)
+        self.grid_width = (self.grid_size * self.cell_size +
+                           self.border_thickness)
+        total_width = self.grid_width + self.info_width
         self.screen = pygame.display.set_mode(
             (total_width, (self.grid_size * self.cell_size +
                            self.border_thickness // 2)))
@@ -58,17 +60,22 @@ class GameWindow:
             bg, (width, int(bg.get_height() * width / bg.get_width())))
         self.button_font = pygame.font.Font(
             'assets/fonts/RobotoSlab-ExtraBold.ttf', 24)
+        self.small_button_font = pygame.font.Font(
+            'assets/fonts/RobotoSlab-ExtraBold.ttf', 18)
         self.title_img = pygame.image.load('assets/images/title.png')
         self.button_img = pygame.image.load('assets/images/button.png')
+        self.exchange_img = pygame.image.load('assets/images/exchange.png')
+        self.exchange_img = pygame.transform.scale(self.exchange_img, (55, 55))
+        self.exchange_hover = pygame.transform.scale(
+            self.exchange_img, (52, 52))
         self.letters_accents = [
             'á', 'é', 'í', 'ó', 'ú', 'ã', 'õ', 'â', 'ê', 'ô',
             'Á', 'É', 'Í', 'Ó', 'Ú', 'Ã', 'Õ', 'Â', 'Ê', 'Ô']
 
     def draw_background(self, alpha=200, area=None):
-        grid_width = self.grid_size * self.cell_size + self.border_thickness
         x, y = area.topleft if area else (0, 0)
         if area:
-            self.fill_area(grid_width, self.screen.get_height(), (x, y))
+            self.fill_area(self.grid_width, self.screen.get_height(), (x, y))
         self.background.set_alpha(alpha)
         self.screen.blit(self.background, (x, y), area)
 
@@ -89,7 +96,8 @@ class GameWindow:
             if mouse_clicked:
                 self.button_down = True
                 current_color = button_color_click
-        button_text = self.button_font.render(text, True, current_color)
+        font = self.button_font if resize > .7 else self.small_button_font
+        button_text = font.render(text, True, current_color)
         text_rect = button_text.get_rect(center=rect.center)
         self.screen.blit(button_text, text_rect)
 
@@ -166,8 +174,7 @@ class GameWindow:
                     self.grid_matrix[i][j] = (0, 0, 255, 180)
 
     def draw_grid(self) -> None:
-        grid_width = self.grid_size * self.cell_size + self.border_thickness
-        self.fill_area(grid_width, self.screen.get_height(), (0, 0))
+        self.fill_area(self.grid_width, self.screen.get_height(), (0, 0))
         border_color = (25, 25, 25)
         border_width = 2
         for x in range(self.grid_size):
@@ -311,11 +318,32 @@ class GameWindow:
             return
 
     def draw_show_tiles_button(self, button_y, text, active=False) -> None:
-        if self.game.winner or not active:
+        if self.game.winner or not active or self.game.current_player.is_bot:
             return
         if self.game_button_click(.85, button_y, text):
             self.button_down = False
             self.game.current_player.show_tiles = True
+        if self.game.current_player.show_tiles:
+            self.draw_exchange_button(button_y)
+
+    def draw_exchange_button(self, button_y):
+        exchange_width, exchange_height = self.exchange_img.get_rect().size
+        button_width, _ = self.button_img.get_rect().size
+        button_rect = pygame.Rect(
+            self.grid_width + (self.info_width + button_width) // 2,
+            button_y + 5, exchange_width, exchange_height)
+        mouse_pos = pygame.mouse.get_pos()
+        mouse_clicked = pygame.mouse.get_pressed()[0]
+        button_hovered = button_rect.collidepoint(mouse_pos)
+        if button_hovered and not mouse_clicked:
+            self.screen.blit(self.exchange_hover, button_rect)
+            return
+        if mouse_clicked and button_hovered:
+            tiles = self.game.current_player.tiles
+            exchange_ok = self.game.exchange_tiles(tiles)
+            if exchange_ok:
+                print('Troca de peças feita com sucesso')
+        self.screen.blit(self.exchange_img, button_rect)
 
     def draw_menu_button(self) -> None:
         if self.game_button_click(.4, 10, 'Menu'):
@@ -323,6 +351,8 @@ class GameWindow:
             self.go_to_menu = True
 
     def draw_challenge_button(self, height) -> None:
+        if self.game.winner or self.game.current_player.is_bot:
+            return
         if self.game_button_click(.6, height - 55, 'Desafiar'):
             self.button_down = False
             self.game.challenge()
@@ -333,14 +363,15 @@ class GameWindow:
         button_width, button_height = self.button_img.get_rect().size
         button_width *= button_resize
         button_height *= button_resize
-        grid_width = self.grid_size * self.cell_size + self.border_thickness
-        left = grid_width + (self.info_width - button_width) // 2
+        left = self.grid_width + (self.info_width - button_width) // 2
         button_rect = pygame.Rect(left, top, button_width, button_height)
         mouse_pos = pygame.mouse.get_pos()
         mouse_clicked = pygame.mouse.get_pressed()[0]
         button_hovered = button_rect.collidepoint(mouse_pos)
         self.draw_button(button_rect, text, mouse_pos,
                          mouse_clicked, button_resize)
+        if button_rect not in self.game_button_rects:
+            self.game_button_rects.append(button_rect)
         return self.button_down and button_hovered and not mouse_clicked
 
     def draw_unseen_tiles(self, info_rect) -> None:
@@ -377,21 +408,23 @@ class GameWindow:
         return obj_text, obj_text_rect
 
     def draw_info_section(self) -> None:
-        grid_width = self.grid_size * self.cell_size + self.border_thickness
         info_rect = pygame.Rect(
-            grid_width, 0, self.info_width, self.screen.get_height())
+            self.grid_width, 0, self.info_width, self.screen.get_height())
         self.draw_background(150, info_rect)
         current_player_text_rect = self.get_label_rect(
             info_rect, 0, -135, 30, (10, 100, 100),
-            f'Jogador atual: Player {self.game.current_player}'
-        )
+            f'Jogador atual: Player {self.game.current_player}')
         if self.game.previous_play_info:
             if 'challenge' in self.game.previous_play_info:
                 previous_play_text = (
                     'Desafio do Player ' +
                     f'{self.game.previous_play_info['challenger']} ' +
-                    f'{self.game.previous_play_info['challenge_ok']}'
-                )
+                    f'{self.game.previous_play_info['challenge_ok']}')
+            elif 'exchange' in self.game.previous_play_info:
+                previous_play_text = (
+                    'Troca do Player ' +
+                    f'{self.game.current_player}' +
+                    f'{self.game.previous_play_info['exchange_ok']}')
             else:
                 previous_player = self.game.previous_play_info.get('player')
                 previous_word = self.game.previous_play_info.get('word')
@@ -399,8 +432,7 @@ class GameWindow:
                     'play_score')
                 previous_play_text = (
                     f'Player {previous_player} | {previous_word} | ' +
-                    f'{previous_play_score}'
-                )
+                    f'{previous_play_score}')
         else:
             previous_play_text = 'Nenhuma palavra foi jogada'
         previous_play_text_rect = self.get_label_rect(
@@ -416,6 +448,11 @@ class GameWindow:
         self.draw_menu_button()
         self.draw_unseen_tiles(info_rect)
         self.draw_player_info()
+        mouse_pos = pygame.mouse.get_pos()
+        if self.button_down and all(
+                not rect.collidepoint(mouse_pos)
+                for rect in self.game_button_rects):
+            self.button_down = False
 
     def draw_player_info(self) -> None:
         player1_tiles = self.game.player1.tiles

@@ -20,9 +20,9 @@ def main() -> None:
             app.game = game
             app.draw_grid_colors()
         app.draw_grid()
-        app.handle_events()
         app.draw_info_section()
         app.draw_board_tiles()
+        app.handle_events()
         pygame.display.flip()
     pygame.quit()
 
