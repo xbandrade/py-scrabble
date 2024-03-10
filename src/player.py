@@ -20,6 +20,13 @@ class Player:
     def __int__(self) -> int:
         return self.id
 
+    def __eq__(self, other):
+        if isinstance(other, Player):
+            return self == other
+        if isinstance(other, int):
+            return self.id == other
+        return False
+
     def __lt__(self, other):
         return self.score < other.score
 

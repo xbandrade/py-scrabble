@@ -18,7 +18,7 @@ class GameWindow:
         self.tile_rgb = 100
         self.color_sum = -5
         self.color_change_counter = 0
-        self.blink_counter = 0
+        self.played_word_blink_counter = 0
         self.play_ok = 0
         self.button_down = False
         self.challenge_clicking = False
@@ -220,7 +220,7 @@ class GameWindow:
 
     def draw_board_tiles(self) -> None:
         self.color_change_counter += 1
-        if self.color_change_counter >= 7:
+        if self.color_change_counter >= 5:
             self.color_change_counter = 0
             self.tile_rgb += self.color_sum + abs(self.play_ok) * 10
             self.tile_rgb = min(255, self.tile_rgb)
@@ -228,7 +228,7 @@ class GameWindow:
                 self.color_sum *= -1
             if self.play_ok:
                 self.color_sum = abs(self.color_sum)
-                self.blink_counter += 1
+                self.played_word_blink_counter += 1
         match self.play_ok:
             case -1:
                 tile_color = (225, self.tile_rgb - 30, self.tile_rgb - 30)
@@ -308,8 +308,8 @@ class GameWindow:
                     font_color = (220, 220, 220)
         if not self.play_ok:
             self.draw_arrow()
-        if self.blink_counter >= 8:
-            self.blink_counter = 0
+        if self.played_word_blink_counter >= 5:
+            self.played_word_blink_counter = 0
             self.color_change_counter = 0
             self.tile_rgb = 100
             self.play_ok = 0
@@ -525,9 +525,6 @@ class GameWindow:
                 self.game.player2.show_tiles = True
             self.active_button = self.game.current_player.id
             self.can_challenge = True
-            best1 = self.game.get_best_words()[0]
-            best2 = self.game.get_best_words(2)[0]
-            print(f'P1 melhor palavra: {best1}\nP2 melhor palavra: {best2}')
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
@@ -602,7 +599,3 @@ class GameWindow:
                     elif play_ok:
                         self.active_button = self.game.current_player.id
                         self.can_challenge = True
-                    best1 = self.game.get_best_words()[0]
-                    best2 = self.game.get_best_words(2)[0]
-                    print(f'P1 melhor palavra: {best1}\n'
-                          f'P2 melhor palavra: {best2}')
