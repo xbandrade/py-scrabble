@@ -13,6 +13,7 @@ class Player:
         self.previous_score = 0
         self.show_tiles = False
         self.is_bot = is_bot
+        self.can_challenge = False
 
     def __str__(self) -> str:
         return str(self.id)

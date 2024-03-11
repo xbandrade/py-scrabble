@@ -11,7 +11,6 @@ class GameWindow:
         self.screen = None
         self.word_start_cell = None
         self.current_cell = None
-        self.letters_matrix = {}
         self.current_word = []
         self.arrow_down = False
         self.is_blank = False
@@ -21,18 +20,13 @@ class GameWindow:
         self.played_word_blink_counter = 0
         self.play_ok = 0
         self.button_down = False
-        self.challenge_clicking = False
         self.go_to_menu = True
-        self.can_challenge = False
         self.active_button = 1
         self.game_button_rects = []
         self.get_font = lambda size: pygame.font.Font(
             'assets/fonts/RobotoSlab-ExtraBold.ttf', size)
         self.font = self.get_font(26)
-        self.medium_font = self.get_font(20)
         self.small_font = self.get_font(12)
-        self.font_color = (0, 0, 0)
-        self.fill_color = (170, 170, 170)
         self.setup()
 
     def setup(self) -> None:
@@ -351,14 +345,11 @@ class GameWindow:
             self.go_to_menu = True
 
     def draw_challenge_button(self, height) -> None:
-        if self.game.winner or self.game.current_player.is_bot:
-            return
         if self.game_button_click(.6, height - 55, 'Desafiar'):
             self.button_down = False
             self.game.challenge()
-            self.can_challenge = False
 
-    def game_button_click(self, resize, top, text):
+    def game_button_click(self, resize, top, text) -> bool:
         button_resize = resize
         button_width, button_height = self.button_img.get_rect().size
         button_width *= button_resize
@@ -422,8 +413,8 @@ class GameWindow:
                     f'{self.game.previous_play_info['challenge_ok']}')
             elif 'exchange' in self.game.previous_play_info:
                 previous_play_text = (
-                    'Troca do Player ' +
-                    f'{self.game.current_player}' +
+                    'Troca do player ' +
+                    f'{3 - self.game.current_player.id} ' +
                     f'{self.game.previous_play_info['exchange_ok']}')
             else:
                 previous_player = self.game.previous_play_info.get('player')
@@ -443,7 +434,8 @@ class GameWindow:
         self.screen.blit(*previous_play_text_rect)
         if not self.game.winner:
             self.screen.blit(*unseen_label_rect)
-            if self.can_challenge:
+            if (self.game.player1.can_challenge or
+                    self.game.player2.can_challenge):
                 self.draw_challenge_button(info_rect.centery)
         self.draw_menu_button()
         self.draw_unseen_tiles(info_rect)
@@ -524,7 +516,6 @@ class GameWindow:
                 self.game.player1.show_tiles = True
                 self.game.player2.show_tiles = True
             self.active_button = self.game.current_player.id
-            self.can_challenge = True
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
@@ -598,4 +589,3 @@ class GameWindow:
                         self.game.player2.show_tiles = True
                     elif play_ok:
                         self.active_button = self.game.current_player.id
-                        self.can_challenge = True
