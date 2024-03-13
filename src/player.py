@@ -1,5 +1,6 @@
-import re
 from collections import Counter
+
+from src.tile import Tile
 
 
 class Player:
@@ -31,25 +32,31 @@ class Player:
     def __lt__(self, other):
         return self.score < other.score
 
-    def draw_tiles(self, bag) -> None:
-        draw = []
-        while (bag and len(self.tiles) < 7):
-            draw.append(bag.pop())
-            self.tiles.append(draw[-1])
-        self.previous_draw = draw
+    def add_tile(self, tile) -> None:
+        self.tiles.append(tile)
+        tile.where = f'p{self}'
+
+    def get_tiles(self) -> None:
+        return [f'{tile}' for tile in self.tiles]
 
     def has_tiles(self, word_chars) -> bool:
-        word = ''.join(word_chars)
-        counter = Counter(self.tiles)
-        word = re.sub(r'\*(\w)', r'*\1', word)
-        for letter in word_chars:
-            counter[letter if '*' not in letter else '*'] -= 1
+        word = [c if c.islower() else '*' for c in word_chars]
+        counter = Counter(map(str, self.tiles))
+        for letter in word:
+            counter[letter] -= 1
             if counter[letter] < 0:
                 return False
         return True
 
-    def remove_tiles(self, tiles) -> None:
-        for tile in tiles:
-            if '*' in tile:
-                tile = '*'
-            self.tiles.remove(tile)
+    def remove_tiles(self, tiles_to_remove) -> None:
+        self.tiles = [
+            tile for tile in self.tiles if tile not in tiles_to_remove]
+
+    def retrieve_tile(self, letter) -> Tile:
+        if letter.isupper():
+            letter = '*'
+        tile_to_remove = [tile for tile in self.tiles if str(tile) == letter]
+        if not tile_to_remove:
+            raise ValueError(f'Player {self} does not have tile {letter}')
+        self.tiles.remove(tile_to_remove[0])
+        return tile_to_remove[0]

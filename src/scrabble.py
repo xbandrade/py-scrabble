@@ -2,12 +2,12 @@ from collections import Counter, defaultdict, deque
 from random import randint, random, shuffle
 from typing import LiteralString
 
-from src.boardsquare import BoardSquare
+from src.boardcell import BoardCell
 from src.bot import Bot
 from src.player import Player
+from src.tile import Tile
 from src.trie import Trie
-from src.utils import (clear_word, get_end_pos, get_word_path, word_join,
-                       word_len, word_split)
+from src.utils import get_end_pos, get_word_path
 
 
 class Scrabble:
@@ -26,30 +26,44 @@ class Scrabble:
             '*' * 3
         )
         self.trie = trie
-        self.board = [[BoardSquare() for _ in range(15)] for _ in range(15)]
+        self.board = [[BoardCell() for _ in range(15)] for _ in range(15)]
         self.bag = None
         self.vs_bot = vs_bot
         self.player1 = self.player2 = None
         self.current_player = None
         self.previous_played_tiles = None
         self.tiles_on_board = 0
-        self.center = (7, 7)
         self.previous_play_info = {}
         self.unseen_tiles = Counter(self.initial_tiles)
         self.winner = None
         self.play_memo = set()
+        self.passes_counter = 0
         self.start_game()
 
     def start_game(self) -> None:
         self.set_multipliers()
         shuffle(self.initial_tiles)
-        self.bag = deque(self.initial_tiles)
+        self.bag = deque([Tile(letter, self.values[letter])
+                          for letter in self.initial_tiles])
         self.initial_tiles.sort()
         self.player1 = Player(1) if not self.vs_bot else Bot(1)
         self.player2 = Player(2)
-        self.player1.draw_tiles(self.bag)
-        self.player2.draw_tiles(self.bag)
+        self.draw_tiles(self.player1)
+        self.draw_tiles(self.player2)
         self.current_player = self.player1
+
+    def draw_tiles(self, player, num=7) -> None:
+        draw = []
+        tiles = player.tiles
+        left = num
+        while self.bag and left > 0:
+            tile = self.bag.pop()
+            draw.append(tile)
+            tiles.append(tile)
+            tile.where = f'p{player}'
+            left -= 1
+        player.previous_draw = draw
+        return num - left
 
     def set_multipliers(self) -> None:
         triple_word = [(0, 0), (0, 14), (14, 0), (14, 14),
@@ -75,31 +89,26 @@ class Scrabble:
             self.board[a][b].letter_multiplier = 2
 
     def get_word_score(self, word, start, end) -> int:
-        word = word_split(word)
-        if (end[0] - start[0] + 1 != word_len(word) and
-                end[1] - start[1] + 1 != word_len(word)):
+        if (end[0] - start[0] + 1 != len(word) and
+                end[1] - start[1] + 1 != len(word)):
             raise ValueError('Palavra ou posições inválidas')
-        if start[0] == end[0]:
-            word_path = [(start[0], i)
-                         for i in range(start[1], end[1] + 1)]
-        else:
-            word_path = [(i, start[1])
-                         for i in range(start[0], end[0] + 1)]
+        word_path, _ = get_word_path(start, len(word), start[1] == end[1])
         word_multiplier, score = 1, 0
         for i, (a, b) in enumerate(word_path):
             mult = self.board[a][b].letter_multiplier
-            score += self.values.get(word[i].lower(), 0) * mult
-            word_multiplier *= self.board[a][b].word_multiplier
+            score += self.values.get(word[i], 0) * mult
+            word_multiplier = max(
+                word_multiplier, self.board[a][b].word_multiplier)
         return score * word_multiplier
 
     def show_tiles(self, player=0) -> None:
         if player < 2:
-            print(f'Player 1: {self.player1.tiles}')
+            print(f'Player 1: {self.player1.get_tiles()}')
         if player in (0, 2):
-            print(f'Player 2: {self.player2.tiles}')
+            print(f'Player 2: {self.player2.get_tiles()}')
 
     def show_bag(self) -> None:
-        counter = Counter(self.bag)
+        counter = Counter(map(str, self.bag))
         print('Bolsa de palavras:\n|', end='')
         for letter, count in sorted(counter.items()):
             print(f' {letter}: {count}', end=' |')
@@ -110,8 +119,8 @@ class Scrabble:
             print(' '.join(map(str, self.board[i])))
 
     def show_scores(self) -> None:
-        print(f'Pontuação player 1: {self.player1.score}')
-        print(f'Pontuação player 2: {self.player2.score}')
+        print(f'Player 1: {self.player1.score} pontos')
+        print(f'Player 2: {self.player2.score} pontos')
 
     def get_player(self, id) -> Player:
         return self.player1 if id == 1 else self.player2
@@ -131,107 +140,96 @@ class Scrabble:
     def switch_current_player(self) -> None:
         self.current_player = self.get_player(3 - self.current_player.id)
 
-    def find_invalid_words(self, word_path) -> list:
-        word = self.get_word_from_board(word_path[0], word_path[-1])
-        if not self.trie.search(clear_word(word)):
+    def find_invalid_words(self, path, get_all_words=True) -> list:
+        word = self.get_word_from_board(path[0], path[-1])
+        if not self.trie.search(word):
             return [word]
         invalid_words = []
-        if word_path[0][0] == word_path[-1][0]:  # horizontal
-            for i, j in word_path:
-                x = i
-                while x > 0 and self.board[x - 1][j].is_occupied:
-                    x -= 1
-                start = (x, j)
-                x = i
-                while x < 14 and self.board[x + 1][j].is_occupied:
-                    x += 1
-                end = (x, j)
-                if start == end:
-                    continue
-                word = self.get_word_from_board(start, end)
-                if not self.trie.search(clear_word(word)):
-                    invalid_words.append(word)
-            return invalid_words
-        for i, j in word_path:  # vertical
-            y = j
-            while y > 0 and self.board[i][y - 1].is_occupied:
-                y -= 1
-            start = (i, y)
-            y = j
-            while y < 14 and self.board[i][y + 1].is_occupied:
-                y += 1
-            end = (i, y)
-            if start == end:
+        down = path[0][1] == path[-1][1]
+        for i, j in path:
+            _, word = self.get_full_word(
+                (i, j), str(self.board[i][j]), not down)
+            if len(word) < 2:
                 continue
-            word = self.get_word_from_board(start, end)
-            if not self.trie.search(clear_word(word)):
+            if not self.trie.search(word):
+                if not get_all_words:
+                    return [word]
                 invalid_words.append(word)
         return invalid_words
 
     def challenge(self) -> bool:
-        player = self.player1 if self.current_player.id == 2 else self.player2
-        if not player.previous_play:
+        opponent = self.get_player(3 - self.current_player.id)
+        if not self.current_player.can_challenge:
+            print('Desafio inválido')
+            return False
+        if not opponent.previous_play:
             print('O oponente não jogou nenhuma palavra')
             return False
-        path = player.previous_play
-        prev_word = self.get_word_from_board(path[0], path[-1])
-        invalid_words = []
-        if not self.trie.search(clear_word(prev_word)):
-            invalid_words.append(prev_word)
-        invalid_words += self.find_invalid_words(path)
+        path = opponent.previous_play
+        invalid_words = self.find_invalid_words(path)
+        self.passes_counter += 1
+        if self.passes_counter >= 6:
+            self.forfeit()
+            return False
         if invalid_words:
             print('Desafio aceito! Palavras inválidas: '
                   f'{', '.join(invalid_words)}')
             self.previous_play_info = {
-                'challenge': True,
                 'challenge_ok': 'aceito',
-                'challenged_player': player.id,
-                'challenger': 3 - player.id,
+                'challenged_player': opponent.id,
+                'challenger': 3 - opponent.id,
                 'invalid_words': invalid_words
             }
-            self.undo_play(player)
+            self.undo_play(opponent)
             self.set_challenge_flags()
             return True
         print('Desafio recusado, a jogada anterior foi válida!')
         self.switch_current_player()
         self.previous_play_info = {
-            'challenge': True,
             'challenge_ok': 'rejeitado',
-            'challenger': 3 - player.id,
-            'challenged_player': player.id
+            'challenger': 3 - opponent.id,
+            'challenged_player': opponent.id
         }
         return False
 
     def forfeit(self) -> None:
         player = self.current_player
         opponent = self.get_player(3 - player.id)
-        print(f'Player {player} perdeu a partida')
-        print(f'Player {opponent} venceu!')
+        player_hand_score = sum(map(int, player.tiles))
+        opponent_hand_score = sum(map(int, opponent.tiles))
+        player.score += player_hand_score
+        opponent.score += opponent_hand_score
+        self.winner = max(self.player1, self.player2)
+        print('Fim da partida por repetição de passes')
+        print(f'Player {self.winner} venceu!')
 
-    def exchange_tiles(self, tiles) -> bool:
+    def exchange_tiles(self) -> bool:
         player = self.current_player
-        if (len(tiles) > len(self.bag) or
-                not all(t in player.tiles for t in tiles)):
-            print('Troca inválida\n')
-            self.previous_play_info = {
-                'exchange': True,
-                'exchange_ok': 'inválida',
-            }
-            return False
+        tiles = player.tiles
         tiles_on_hand = tiles[:]
-        player.remove_tiles(tiles)
-        player.draw_tiles(self.bag)
-        for tile in tiles_on_hand:
-            self.bag.insert(randint(0, len(self.bag)), tile)
+        drawn_tiles = self.draw_tiles(player, len(tiles_on_hand))
+        if drawn_tiles == 0:
+            print('Troca inválida\n')
+            self.previous_play_info = {'exchange_ok': 'inválida'}
+            return False
+        player.remove_tiles(tiles_on_hand[:drawn_tiles])
+        self.move_tiles_to_bag(tiles_on_hand[:drawn_tiles])
         print(f'Player {player} trocou de peças com sucesso\n')
-        self.previous_play_info = {
-            'exchange': True,
-            'exchange_ok': 'válida',
-        }
+        self.previous_play_info = {'exchange_ok': 'válida'}
         player.show_tiles = False
         self.switch_current_player()
         self.set_challenge_flags()
+        self.passes_counter += 1
+        if self.passes_counter >= 6:
+            self.forfeit()
+            return False
         return True
+
+    def move_tiles_to_bag(self, tiles) -> None:
+        for tile in tiles:
+            self.bag.append(tile)
+            tile.where = 'bag'
+        shuffle(self.bag)
 
     def set_challenge_flags(self, p1=False, p2=False) -> None:
         self.player1.can_challenge = p1
@@ -239,15 +237,13 @@ class Scrabble:
 
     def get_word_from_board(self, start, end) -> LiteralString:
         word = []
-        if start[0] == end[0]:
-            word_path = [(start[0], start[1] + i) for i in range(
-                abs(start[1] - end[1]) + 1)]
-        else:
-            word_path = [(start[0] + i, start[1]) for i in range(
-                abs(start[0] - end[0]) + 1)]
+        down = start[1] == end[1]
+        length = (end[1] - start[1] or end[0] - start[0]) + 1
+        word_path, _ = get_word_path(start, length, down)
         for i, j in word_path:
-            c = self.board[i][j].blank_letter or self.board[i][j].letter
-            word.append(c)
+            if not self.board[i][j].is_occupied:
+                raise ValueError(f'Word path inválido: {word_path}')
+            word.append(f'{self.board[i][j]}')
         return ''.join(word)
 
     def undo_play(self, player) -> bool:
@@ -255,13 +251,11 @@ class Scrabble:
             print('Não há nenhuma jogada anterior\n')
             return False
         player.remove_tiles(player.previous_draw)
-        for tile in player.previous_draw:
-            self.bag.insert(randint(0, len(self.bag)), tile)
+        self.move_tiles_to_bag(player.previous_draw)
         player.previous_draw = None
         for i, j in self.previous_played_tiles:
-            letter = self.board[i][j].letter
-            player.tiles.append(letter)
-            self.board[i][j].clear_square()
+            tile = self.board[i][j].clear()
+            player.add_tile(tile)
             self.tiles_on_board -= 1
         player.score = player.previous_score
         self.update_unseen_tiles()
@@ -269,161 +263,79 @@ class Scrabble:
 
     def get_extra_score(self, path) -> int:
         extra_score = 0
-        if path[0][0] == path[-1][0]:
-            for i, j in path:
-                above_occupied = self.board[i - 1][j].is_occupied
-                below_occupied = self.board[(i + 1) % 15][j].is_occupied
-                if ((i == 0 and not below_occupied) or
-                        (i == 14 and not above_occupied)):
-                    continue
-                if ((i == 0 and below_occupied) or
-                        (i < 14 and below_occupied and not above_occupied)):
-                    start = (i, j)
-                    x = i
-                    while x < 14 and self.board[x + 1][j].is_occupied:
-                        x += 1
-                    end = (x, j)
-                    word = self.get_word_from_board(start, end)
-                    extra_score += self.get_word_score(word, start, end)
-                    continue
-                if ((i == 14 and above_occupied) or
-                        (i > 0 and above_occupied and not below_occupied)):
-                    end = (i, j)
-                    x = i
-                    while x > 0 and self.board[x - 1][j].is_occupied:
-                        x -= 1
-                    start = (x, j)
-                    word = self.get_word_from_board(start, end)
-                    extra_score += self.get_word_score(word, start, end)
-            return extra_score
+        down = path[0][1] == path[-1][1]
         for i, j in path:
-            left_occupied = self.board[i][j - 1].is_occupied
-            right_occupied = self.board[i][(j + 1) % 15].is_occupied
-            if ((j == 0 and not right_occupied) or
-                    (j == 14 and not left_occupied)):
+            start, word = self.get_full_word(
+                (i, j), str(self.board[i][j]), not down)
+            if len(word) < 2:
                 continue
-            if ((j == 0 and right_occupied) or
-                    (j < 14 and right_occupied and not left_occupied)):
-                start = (i, j)
-                y = j
-                while y < 14 and self.board[i][y + 1].is_occupied:
-                    y += 1
-                end = (i, y)
-                word = self.get_word_from_board(start, end)
-                extra_score += self.get_word_score(word, start, end)
-                continue
-            if ((j == 14 and left_occupied) or
-                    (j > 0 and left_occupied and not right_occupied)):
-                end = (i, j)
-                y = j
-                while y > 0 and self.board[i][y - 1].is_occupied:
-                    y -= 1
-                start = (i, y)
-                word = self.get_word_from_board(start, end)
-                extra_score += self.get_word_score(word, start, end)
+            end = get_end_pos(start, len(word), not down)
+            extra_score += self.get_word_score(word, start, end)
         return extra_score
 
     def get_full_word(self, start, word, down=True) -> tuple:
         full_word = word.split()
         if down:
-            end_x = start[0] + word_len(word) - 1
-            end_y = start[1]
+            y = start[1]
             start_x = start[0]
+            end_x = start[0] + len(word) - 1
             for i in range(end_x + 1, 15):
-                if not self.board[i][end_y].is_occupied:
+                if not self.board[i][y].is_occupied:
                     break
-                full_word.append(self.board[i][end_y].blank_letter or
-                                 self.board[i][end_y].letter)
+                full_word.append(f'{self.board[i][y]}')
             for i in range(start_x - 1, -1, -1):
-                if not self.board[i][end_y].is_occupied:
+                if not self.board[i][y].is_occupied:
                     break
-                start = (i, end_y)
-                full_word.insert(0, (self.board[i][end_y].blank_letter or
-                                     self.board[i][end_y].letter))
+                start = (i, y)
+                full_word.insert(0, f'{self.board[i][y]}')
             return start, ''.join(full_word)
-        end_x = start[0]
-        end_y = start[1] + word_len(word) - 1
+        x = start[0]
         start_y = start[1]
+        end_y = start[1] + len(word) - 1
         for i in range(end_y + 1, 15):
-            if not self.board[end_x][i].is_occupied:
+            if not self.board[x][i].is_occupied:
                 break
-            full_word.append(self.board[end_x][i].blank_letter or
-                             self.board[end_x][i].letter)
+            full_word.append(f'{self.board[x][i]}')
         for i in range(start_y - 1, -1, -1):
-            if not self.board[end_x][i].is_occupied:
+            if not self.board[x][i].is_occupied:
                 break
-            start = (end_x, i)
-            full_word.insert(0, (self.board[end_x][i].blank_letter or
-                                 self.board[end_x][i].letter))
+            start = (x, i)
+            full_word.insert(0, f'{self.board[x][i]}')
         return start, ''.join(full_word)
 
-    def find_valid_words(self, player, on_board=None, min_size=0, max_size=15) -> list:  # noqa
-        def dfs(node, letters, letter_freq):
-            if node.is_word and min_size <= len(letters) <= max_size:
-                valid_words.append(''.join(letters))
-            if (index := len(letters)) in on_board:
-                if (letter := on_board[index]) in node.children:
-                    letters.append(letter)
-                    dfs(node.children[letter], letters, letter_freq)
-                    letters.pop()
-                return
-            for letter, child in node.children.items():
-                if letter_freq[letter] > 0:
-                    letters.append(letter)
-                    letter_freq[letter] -= 1
-                    dfs(child, letters, letter_freq)
-                    letters.pop()
-                    letter_freq[letter] += 1
-            if letter_freq['*'] > 0:
-                for letter, child in node.children.items():
-                    letters.append(f'[{letter}]')
-                    letter_freq['*'] -= 1
-                    dfs(child, letters, letter_freq)
-                    letters.pop()
-                    letter_freq['*'] += 1
-
-        valid_words = []
-        if not on_board:
-            on_board = {}
-        letter_freq = defaultdict(int)
-        for letter in player.tiles:
-            letter_freq[letter.lower()] += 1
-        dfs(self.trie.root, [], letter_freq)
-        return sorted(valid_words, key=lambda x: (-len(x), x))
-
     def get_best_words(self, player, start, down, on_board) -> list:
-        player = self.get_player(player)
         x, y = start
         min_size = max(on_board) if on_board else 0
         max_size = 15 - x if down else 15 - y
         if max_size < min_size:
             return [('', 0)]
-        valid_words = self.find_valid_words(
+        valid_words = self.trie.find_valid_words(
             player, on_board, min_size, max_size)[:10]
         best_words = []
         for word in valid_words:
-            end = get_end_pos(start, word_len(word), down)
+            path, end = get_word_path(start, len(word), down)
             score = self.get_word_score(word, start, end)
+            score += self.get_extra_score(path)
             best_words.append((word, score))
         best_words = sorted(best_words, key=lambda x: (-x[1], x[0]))
-        player.best_words = []
+        player.best_words = best_words
         return best_words or [('', 0)]
 
     def bot_play(self) -> None:
         if not self.current_player.is_bot:
             raise ValueError('Player não é um bot')
-        word, _ = self.get_best_words(
-            self.current_player.id, (7, 7), random() < .5, None)[0]
-        if not word:
-            print('O bot não encontrou palavras válidas.')
-            print('Realizando troca de peças\n')
-            self.exchange_tiles(self.current_player.tiles)
-            return
+        bot = self.current_player
         if self.tiles_on_board == 0:
             down = random() < 0.5
-            start_pos = ((randint(7 - len(word) + 1, 7), 7)
-                         if down else (7, randint(7 - len(word) + 1, 7)))
-            self.play_word(word, start_pos, down)
+            word, _ = self.get_best_words(bot, (7, 7), down, None)[0]
+            if not word:
+                print('O bot não encontrou palavras válidas.')
+                print('Realizando troca de peças\n')
+                self.exchange_tiles()
+                return
+            start = ((randint(7 - len(word) + 1, 7), 7)
+                     if down else (7, randint(7 - len(word) + 1, 7)))
+            self.play_word(word, start, down)
             return
         current_best_play = ('', 0, (7, 7), False)  # word, score, start, down
         for i, j in self.get_all_occupied_tiles():
@@ -433,7 +345,7 @@ class Scrabble:
                     continue
                 path = self.get_valid_path_to_play((i, k), down)
                 on_board = self.get_occupied_tiles_positions_from_path(path)
-                best_plays = self.get_best_words(1, (i, k), down, on_board)
+                best_plays = self.get_best_words(bot, (i, k), down, on_board)
                 if len(best_plays[0][0]) > len(on_board):
                     current_best_play = self.get_current_best_play(
                         current_best_play, best_plays[0], i, k, down)
@@ -444,7 +356,7 @@ class Scrabble:
                     continue
                 path = self.get_valid_path_to_play((k, j), down)
                 on_board = self.get_occupied_tiles_positions_from_path(path)
-                best_plays = self.get_best_words(1, (k, j), down, on_board)
+                best_plays = self.get_best_words(bot, (k, j), down, on_board)
                 if len(best_plays[0][0]) > len(on_board):
                     current_best_play = self.get_current_best_play(
                         current_best_play, best_plays[0], k, j, down)
@@ -463,20 +375,21 @@ class Scrabble:
                 print('Desafio aceito!\n')
             return
         print('Realizando troca de peças\n')
-        self.exchange_tiles(self.current_player.tiles)
+        self.exchange_tiles()
 
     def get_current_best_play(self, current_best, play, x, y, down) -> tuple:
         word, _ = play
-        word = clear_word(word)
         temp_tiles = []
         i, j = x, y
         for letter in word:
-            tile = self.board[i][j]
-            if not tile.is_occupied:
-                tile.set_letter(letter)
-                temp_tiles.append(tile)
-            if (tile.is_occupied and letter not in (
-                    tile.letter, tile.blank_letter)):
+            cell = self.board[i][j]
+            if not cell.is_occupied:
+                tile = Tile(letter, self.values[letter])
+                cell.place_tile(tile)
+                if letter.isupper():
+                    tile.blank_letter = letter
+                temp_tiles.append(cell)
+            if cell.is_occupied and letter != f'{cell.tile}':
                 return current_best
             i += down
             j += not down
@@ -484,10 +397,10 @@ class Scrabble:
                 self.undo_temp_plays(temp_tiles)
                 return current_best
         start, full_word = self.get_full_word((x, y), word, down)
-        end_pos = get_end_pos(start, word_len(full_word), down)
+        path, end_pos = get_word_path(start, len(full_word), down)
         score = self.get_word_score(full_word, start, end_pos)
-        path = get_word_path(start, down, full_word)[0]
-        invalid_words = self.find_invalid_words(path)
+        score += self.get_extra_score(path)
+        invalid_words = self.find_invalid_words(path, get_all_words=False)
         self.undo_temp_plays(temp_tiles)
         if invalid_words:
             return current_best
@@ -495,15 +408,15 @@ class Scrabble:
                    key=lambda k: k[1])
 
     def undo_temp_plays(self, temp_tiles) -> None:
-        for tile in temp_tiles:
-            tile.clear_square()
+        for cell in temp_tiles:
+            cell.clear()
 
     def get_all_occupied_tiles(self) -> list:
         return [(i, j) for i in range(15) for j in range(15)
                 if self.board[i][j].is_occupied]
 
     def get_occupied_tiles_positions_from_path(self, path) -> dict:
-        return {p: self.board[x][y].letter for p, (x, y) in enumerate(path)
+        return {p: f'{self.board[x][y]}' for p, (x, y) in enumerate(path)
                 if self.board[x][y].is_occupied}
 
     def get_valid_path_to_play(self, start, down) -> list:
@@ -523,73 +436,70 @@ class Scrabble:
     def update_unseen_tiles(self) -> None:
         self.unseen_tiles = Counter(self.initial_tiles)
         for i, j in self.get_all_occupied_tiles():
-            self.unseen_tiles[self.board[i][j].letter] -= 1
+            letter = self.board[i][j].tile.letter
+            self.unseen_tiles[letter] -= 1
 
-    def play_word(self, word, start_pos, down=True) -> bool:
+    def play_word(self, word, start, down=True) -> bool:
         player = self.current_player
         opponent = self.get_player(3 - player.id)
-        start_pos, word = self.get_full_word(start_pos, word, down)
-        word = word_split(word)
-        word_path, end_pos = get_word_path(start_pos, down, word)
-        if end_pos[0] > 14 or end_pos[1] > 14:
+        start, word = self.get_full_word(start, word, down)
+        word_path, end = get_word_path(start, len(word), down)
+        if end[0] > 14 or end[1] > 14:
             print('Posição inválida')
             return False
         if self.tiles_on_board == 0:
-            if self.center not in word_path:
+            if (7, 7) not in word_path:
                 print('A primeira palavra deve passar pelo centro (7, 7)')
                 return False
         elif not self.are_tiles_touching(word_path):
             print('Sua palavra deve tocar em uma palavra já jogada')
             return False
         tiles_to_add = {}
-        not_on_board = []
         for i, (a, b) in enumerate(word_path):
-            tile = word[i]
+            letter = word[i]
             if self.board[a][b].is_occupied:
-                if str(self.board[a][b]) != tile:
+                if str(self.board[a][b]) != letter:
                     print('Posição ocupada por outra letra')
+                    print(f'Palavra: {word}, wordpath: {word_path}')
                     return False
-            else:
-                not_on_board.append(tile)
-                tiles_to_add[(a, b)] = tile
-        if not player.has_tiles(not_on_board):
+                continue
+            tiles_to_add[(a, b)] = letter
+        if not player.has_tiles(tiles_to_add.values()):
             print('Você não possui as letras para jogar esta palavra')
             return False
-        for (a, b), tile in tiles_to_add.items():
-            self.board[a][b].set_letter(tile)
+        for (a, b), letter in tiles_to_add.items():
+            tile = player.retrieve_tile(letter)
+            self.board[a][b].place_tile(tile)
+            if letter.isupper():
+                tile.blank_letter = letter
         self.update_unseen_tiles()
-        word_score = self.get_word_score(word, start_pos, end_pos)
+        word_score = self.get_word_score(word, start, end)
         player.previous_score = player.score
         play_score = word_score + self.get_extra_score(word_path)
-        if len(not_on_board) == 7:
+        if len(tiles_to_add) == 7:  # bingo extra score
             play_score += 50
         player.score += play_score
         self.tiles_on_board += len(tiles_to_add)
         self.previous_played_tiles = tiles_to_add.keys()
-        try:
-            player.remove_tiles(not_on_board)
-        except ValueError:
-            print('Jogada inválida!')
-            return False
-        print(f'Jogador {player} jogou > {word_join(word)} < por '
+        print(f'Jogador {player} jogou > {word} < por '
               f'{play_score} pontos')
-        player.draw_tiles(self.bag)
-        print(self.player1.tiles)
-        print(self.player2.tiles)
+        self.draw_tiles(player, len(tiles_to_add))
+        self.show_tiles(1)
+        self.show_tiles(2)
         player.previous_play = word_path
         self.switch_current_player()
         self.previous_play_info = {
             'player': player.id,
-            'word': word_join(word),
+            'word': word,
             'play_score': play_score
         }
         player.show_tiles = False
         player.can_challenge = False
         opponent.can_challenge = True
         if len(self.bag) == 0 and not player.tiles:
-            opponent_hand_score = sum(
-                self.values.get(c, 0) for c in opponent.tiles)
+            opponent_hand_score = sum(map(int, opponent.tiles))
             player.score += opponent_hand_score
             self.winner = max(self.player1, self.player2)
             print(f'Player {self.winner} venceu!')
+        self.passes_counter = 0
         return True

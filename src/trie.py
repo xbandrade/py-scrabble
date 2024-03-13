@@ -53,7 +53,41 @@ class Trie:
 
     def clear_word(self, word: str) -> str:
         word = word.lower()
-        word = word.replace('-', ' ')
-        word = word.replace("'", '')
+        word = word.replace('-', ' ').replace("'", '')
         return ''.join(self.accents_to_remove.get(
             letter, letter) for letter in word)
+
+    def find_valid_words(self, player, on_board=None, min_size=0, max_size=15) -> list:  # noqa
+        def dfs(node, letters, letter_freq):
+            if node.is_word and min_size <= len(letters) <= max_size:
+                valid_words.append(''.join(letters))
+            if (index := len(letters)) in on_board:
+                if (letter := on_board[index]) in node.children:
+                    letters.append(letter)
+                    dfs(node.children[letter], letters, letter_freq)
+                    letters.pop()
+                return
+            for letter, child in node.children.items():
+                if letter_freq[letter] > 0:
+                    letters.append(letter)
+                    letter_freq[letter] -= 1
+                    dfs(child, letters, letter_freq)
+                    letters.pop()
+                    letter_freq[letter] += 1
+            if letter_freq['*'] > 0:
+                for letter, child in node.children.items():
+                    letters.append(f'{letter.upper()}')
+                    letter_freq['*'] -= 1
+                    dfs(child, letters, letter_freq)
+                    letters.pop()
+                    letter_freq['*'] += 1
+
+        valid_words = []
+        if not on_board:
+            on_board = {}
+        letter_freq = defaultdict(int)
+        for tile in player.tiles:
+            letter = tile.letter
+            letter_freq[letter] += 1
+        dfs(self.root, [], letter_freq)
+        return sorted(valid_words, key=lambda x: (-len(x), x))

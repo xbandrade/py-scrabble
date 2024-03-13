@@ -37,6 +37,7 @@ class GameWindow:
             (total_width, (self.grid_size * self.cell_size +
                            self.border_thickness // 2)))
         pygame.display.set_caption('Scrabble')
+        pygame.display.set_icon(pygame.image.load('assets/images/icon.png'))
         self.grid_matrix = [[None for _ in range(
             self.grid_size)] for _ in range(self.grid_size)]
         self.star_image = pygame.image.load('assets/images/star.png')
@@ -248,11 +249,9 @@ class GameWindow:
                          background_surface.get_height()),
                         border_width
                     )
-                    if cell.blank_letter:
-                        letter = cell.blank_letter.upper()
+                    if cell.tile.blank_letter:
                         font_color = (70, 155, 70)
-                    else:
-                        letter = cell.letter.upper()
+                    letter = f'{cell}'.upper()
                     letter_text = self.font.render(letter, True, font_color)
                     letter_rect = letter_text.get_rect(
                         center=(self.cell_size // 2, self.cell_size // 2))
@@ -273,10 +272,8 @@ class GameWindow:
                 self.cell_size, 0)
             font_color = (220, 220, 220)
             is_blank = False
-            for letter in ''.join(self.current_word).upper():
-                if letter == '*':
-                    is_blank = True
-                    continue
+            # for letter in ''.join(self.current_word).upper():
+            for letter in ''.join(self.current_word):
                 offset = 3
                 border_width = 2
                 background_surface = pygame.Surface(
@@ -288,9 +285,11 @@ class GameWindow:
                      background_surface.get_height()),
                     border_width
                 )
-                if is_blank:
+                if letter.isupper():
+                    is_blank = True
                     font_color = (255, 112, 112)
-                letter_text = self.font.render(letter, True, font_color)
+                letter_text = self.font.render(
+                    letter.upper(), True, font_color)
                 letter_rect = letter_text.get_rect(
                     center=(self.cell_size // 2, self.cell_size // 2))
                 background_surface.blit(letter_text, letter_rect)
@@ -333,8 +332,7 @@ class GameWindow:
             self.screen.blit(self.exchange_hover, button_rect)
             return
         if mouse_clicked and button_hovered:
-            tiles = self.game.current_player.tiles
-            exchange_ok = self.game.exchange_tiles(tiles)
+            exchange_ok = self.game.exchange_tiles()
             if exchange_ok:
                 print('Troca de peças feita com sucesso')
         self.screen.blit(self.exchange_img, button_rect)
@@ -406,12 +404,12 @@ class GameWindow:
             info_rect, 0, -135, 30, (10, 100, 100),
             f'Jogador atual: Player {self.game.current_player}')
         if self.game.previous_play_info:
-            if 'challenge' in self.game.previous_play_info:
+            if 'challenge_ok' in self.game.previous_play_info:
                 previous_play_text = (
                     'Desafio do Player ' +
                     f'{self.game.previous_play_info['challenger']} ' +
                     f'{self.game.previous_play_info['challenge_ok']}')
-            elif 'exchange' in self.game.previous_play_info:
+            elif 'exchange_ok' in self.game.previous_play_info:
                 previous_play_text = (
                     'Troca do player ' +
                     f'{3 - self.game.current_player.id} ' +
@@ -477,9 +475,9 @@ class GameWindow:
         for tile in sorted(player2_tiles):
             tile_rect = pygame.Rect(player_x, player2_y, tile_size, tile_size)
             pygame.draw.rect(self.screen, (0, 0, 128), tile_rect)
-            show_tile = tile.upper() if self.game.player2.show_tiles else ''
-            value = (str(self.game.values[tile.lower()])
-                     if self.game.player2.show_tiles else '')
+            show_tile = str(tile).upper(
+            ) if self.game.player2.show_tiles else ''
+            value = f'{int(tile)}' if self.game.player2.show_tiles else ''
             letter_text = self.font.render(show_tile, True, (200, 200, 200))
             letter_rect = letter_text.get_rect(center=tile_rect.center)
             value_text = self.small_font.render(value, True, (255, 255, 255))
@@ -493,9 +491,9 @@ class GameWindow:
         for tile in sorted(player1_tiles):
             tile_rect = pygame.Rect(player_x, player1_y, tile_size, tile_size)
             pygame.draw.rect(self.screen, (128, 0, 0), tile_rect)
-            show_tile = tile.upper() if self.game.player1.show_tiles else ''
-            value = (str(self.game.values[tile.lower()])
-                     if self.game.player1.show_tiles else '')
+            show_tile = str(tile).upper(
+            ) if self.game.player1.show_tiles else ''
+            value = f'{int(tile)}' if self.game.player1.show_tiles else ''
             letter_text = self.font.render(show_tile, True, (200, 200, 200))
             letter_rect = letter_text.get_rect(center=tile_rect.center)
             value_text = self.small_font.render(value, True, (255, 255, 255))
@@ -509,8 +507,11 @@ class GameWindow:
     def handle_events(self) -> None:
         if self.game.current_player.is_bot:
             print('O bot está fazendo uma jogada')
+            self.game.show_tiles(1)
+            self.game.show_tiles(2)
             self.game.bot_play()
             self.game.print_board()
+            self.game.show_bag()
             self.color_change_counter = 0
             if self.game.winner:
                 self.game.player1.show_tiles = True
@@ -536,14 +537,11 @@ class GameWindow:
                 else:
                     self.word_start_cell = self.current_cell = None
             if event.type == pygame.KEYDOWN and self.word_start_cell:
-                if (self.current_cell and
-                    (event.unicode.isalpha() or
-                     event.unicode in self.letters_accents)):
-                    if self.is_blank:
-                        self.current_word.append(f'*{event.unicode.lower()}')
-                        self.is_blank = False
-                    else:
-                        self.current_word.append(event.unicode.lower())
+                if (self.current_cell and (event.unicode.isalpha() or
+                                           event.unicode in self.letters_accents)):  # noqa
+                    letter = event.unicode
+                    self.current_word.append(
+                        letter.upper() if self.is_blank else letter.lower())
                     if ((self.current_cell[0] >= self.grid_size - 1 and
                          not self.arrow_down) or
                         (self.current_cell[1] >= self.grid_size and
@@ -555,6 +553,7 @@ class GameWindow:
                     else:
                         self.current_cell = (
                             self.current_cell[0] + 1, self.current_cell[1])
+                    self.is_blank = False
                 elif event.key == pygame.K_SPACE:
                     self.is_blank = True
                 elif event.key == pygame.K_BACKSPACE:
@@ -583,6 +582,7 @@ class GameWindow:
                     play_ok = self.game.play_word(word, start, self.arrow_down)
                     self.play_ok = 1 if play_ok else -1
                     self.game.print_board()
+                    self.game.show_bag()
                     self.color_change_counter = 0
                     if self.game.winner:
                         self.game.player1.show_tiles = True
