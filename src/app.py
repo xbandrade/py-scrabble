@@ -388,6 +388,13 @@ class GameWindow:
             self.screen.blit(*unseen_letters_rect)
             pad += 25
 
+    def draw_tiles_in_bag(self, info_rect) -> None:
+        tiles_in_bag = self.get_label_rect(
+            info_rect, 0, 100, 50, (40, 40, 40),
+            f'Bolsa de Letras: {len(self.game.bag)}', 22
+        )
+        self.screen.blit(*tiles_in_bag)
+
     def get_label_rect(self, rect, padx, pady, height, color, text, font=24):
         font = self.get_font(font)
         obj_rect = pygame.Rect(
@@ -437,6 +444,7 @@ class GameWindow:
                 self.draw_challenge_button(info_rect.centery)
         self.draw_menu_button()
         self.draw_unseen_tiles(info_rect)
+        self.draw_tiles_in_bag(info_rect)
         self.draw_player_info()
         mouse_pos = pygame.mouse.get_pos()
         if self.button_down and all(
@@ -472,7 +480,7 @@ class GameWindow:
             p2_rect.y + self.cell_size, 'Mostrar Letras', active)
         self.screen.blit(p1_text, p1_text_rect)
         self.screen.blit(p2_text, p2_text_rect)
-        for tile in sorted(player2_tiles):
+        for tile in sorted(player2_tiles[:7]):
             tile_rect = pygame.Rect(player_x, player2_y, tile_size, tile_size)
             pygame.draw.rect(self.screen, (0, 0, 128), tile_rect)
             show_tile = str(tile).upper(
@@ -488,7 +496,7 @@ class GameWindow:
             self.screen.blit(value_text, value_rect)
             player_x += tile_size + tile_spacing
         player_x = self.grid_size * self.cell_size + self.cell_size
-        for tile in sorted(player1_tiles):
+        for tile in sorted(player1_tiles[:7]):
             tile_rect = pygame.Rect(player_x, player1_y, tile_size, tile_size)
             pygame.draw.rect(self.screen, (128, 0, 0), tile_rect)
             show_tile = str(tile).upper(
@@ -505,7 +513,7 @@ class GameWindow:
             player_x += tile_size + tile_spacing
 
     def handle_events(self) -> None:
-        if self.game.current_player.is_bot:
+        if self.game.current_player.is_bot and not self.game.winner:
             print('O bot está fazendo uma jogada')
             self.game.show_tiles(1)
             self.game.show_tiles(2)
@@ -513,10 +521,10 @@ class GameWindow:
             self.game.print_board()
             self.game.show_bag()
             self.color_change_counter = 0
-            if self.game.winner:
-                self.game.player1.show_tiles = True
-                self.game.player2.show_tiles = True
             self.active_button = self.game.current_player.id
+        if self.game.winner:
+            self.game.player1.show_tiles = True
+            self.game.player2.show_tiles = True
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
@@ -536,7 +544,8 @@ class GameWindow:
                         self.current_cell = self.word_start_cell
                 else:
                     self.word_start_cell = self.current_cell = None
-            if event.type == pygame.KEYDOWN and self.word_start_cell:
+            if (event.type == pygame.KEYDOWN and self.word_start_cell and
+                    not self.game.winner):
                 if (self.current_cell and (event.unicode.isalpha() or
                                            event.unicode in self.letters_accents)):  # noqa
                     letter = event.unicode
@@ -584,8 +593,5 @@ class GameWindow:
                     self.game.print_board()
                     self.game.show_bag()
                     self.color_change_counter = 0
-                    if self.game.winner:
-                        self.game.player1.show_tiles = True
-                        self.game.player2.show_tiles = True
-                    elif play_ok:
+                    if play_ok:
                         self.active_button = self.game.current_player.id

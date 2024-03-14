@@ -168,7 +168,7 @@ class Scrabble:
         path = opponent.previous_play
         invalid_words = self.find_invalid_words(path)
         self.passes_counter += 1
-        if self.passes_counter >= 6:
+        if self.passes_counter > 6:
             self.forfeit()
             return False
         if invalid_words:
@@ -197,10 +197,13 @@ class Scrabble:
         opponent = self.get_player(3 - player.id)
         player_hand_score = sum(map(int, player.tiles))
         opponent_hand_score = sum(map(int, opponent.tiles))
-        player.score += player_hand_score
-        opponent.score += opponent_hand_score
+        player.score = max(0, player.score - player_hand_score)
+        opponent.score = max(0, opponent.score - opponent_hand_score)
         self.winner = max(self.player1, self.player2)
         print('Fim da partida por repetição de passes')
+        if self.player1.score == self.player2.score:
+            print('Empate!')
+            return
         print(f'Player {self.winner} venceu!')
 
     def exchange_tiles(self) -> bool:
@@ -208,22 +211,22 @@ class Scrabble:
         tiles = player.tiles
         tiles_on_hand = tiles[:]
         drawn_tiles = self.draw_tiles(player, len(tiles_on_hand))
-        if drawn_tiles == 0:
-            print('Troca inválida\n')
+        if drawn_tiles <= 0:
+            print('Bolsa de letras vazia\n')
             self.previous_play_info = {'exchange_ok': 'inválida'}
-            return False
-        player.remove_tiles(tiles_on_hand[:drawn_tiles])
-        self.move_tiles_to_bag(tiles_on_hand[:drawn_tiles])
-        print(f'Player {player} trocou de peças com sucesso\n')
-        self.previous_play_info = {'exchange_ok': 'válida'}
+        if drawn_tiles > 0:
+            player.remove_tiles(tiles_on_hand[:drawn_tiles])
+            self.move_tiles_to_bag(tiles_on_hand[:drawn_tiles])
+            print(f'Player {player} trocou de peças com sucesso\n')
+            self.previous_play_info = {'exchange_ok': 'válida'}
         player.show_tiles = False
         self.switch_current_player()
         self.set_challenge_flags()
         self.passes_counter += 1
-        if self.passes_counter >= 6:
+        if self.passes_counter > 6:
             self.forfeit()
             return False
-        return True
+        return drawn_tiles > 0
 
     def move_tiles_to_bag(self, tiles) -> None:
         for tile in tiles:
